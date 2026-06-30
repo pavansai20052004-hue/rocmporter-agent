@@ -143,6 +143,7 @@ A real workflow now lives at [.github/workflows/rocmporter-agent.yml](C:/Users/p
 - Scan-only runs on `ubuntu-latest`
 - Frontend quality checks run lint, build, and Playwright smoke tests
 - Scan plus patch runs on a labeled self-hosted runner with Ollama
+- AMD Developer Cloud ROCm validation runs from [.github/workflows/amd-devcloud-rocm-validation.yml](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/.github/workflows/amd-devcloud-rocm-validation.yml) on a self-hosted AMD/ROCm runner
 - Phase 4 can also generate GitHub review artifacts and optionally post a PR comment when a token is configured
 - Phase 5 adds PAT-based private repo access and line-aware review artifacts for PR workflows
 - Both upload the export bundle as a workflow artifact

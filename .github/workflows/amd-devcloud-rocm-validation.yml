@@ -1,0 +1,83 @@
+name: AMD Developer Cloud ROCm Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: Target repository URL
+        required: true
+        default: https://github.com/pytorch/extension-cpp
+        type: string
+      patch_file:
+        description: Patch file path in this repository
+        required: true
+        default: examples/amd-cloud/extension_cpp_setup_rocm_candidate.diff
+        type: string
+      project_subdir:
+        description: Target project subdirectory inside cloned repo
+        required: true
+        default: extension_cpp
+        type: string
+      build_command:
+        description: Build command run inside project_subdir
+        required: true
+        default: USE_ROCM=1 USE_CUDA=0 python -m pip install --no-build-isolation -e .
+        type: string
+      test_command:
+        description: Test command run inside target repo root
+        required: true
+        default: python test/test_extension.py
+        type: string
+      torch_spec:
+        description: Torch package spec installed into validation venv
+        required: true
+        default: torch
+        type: string
+      pytorch_index_url:
+        description: PyTorch ROCm wheel index URL
+        required: true
+        default: https://download.pytorch.org/whl/rocm7.2
+        type: string
+
+jobs:
+  validate-on-amd-devcloud:
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - amd
+      - rocm
+      - devcloud
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show ROCm host baseline
+        shell: bash
+        run: |
+          uname -a
+          command -v rocminfo && rocminfo | head -80 || true
+          command -v hipcc && hipcc --version || true
+          python --version
+
+      - name: Validate ROCm patch
+        shell: bash
+        run: |
+          bash scripts/amd-cloud/validate_rocm_patch.sh \
+            --repo-url "${{ inputs.repo_url }}" \
+            --patch-file "${{ inputs.patch_file }}" \
+            --project-subdir "${{ inputs.project_subdir }}" \
+            --build-command "${{ inputs.build_command }}" \
+            --test-command "${{ inputs.test_command }}" \
+            --setup-python-env \
+            --require-rocm \
+            --torch-spec "${{ inputs.torch_spec }}" \
+            --pytorch-index-url "${{ inputs.pytorch_index_url }}" \
+            --output-dir amd-cloud-validation-output
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amd-devcloud-rocm-validation
+          path: amd-cloud-validation-output
+          if-no-files-found: warn

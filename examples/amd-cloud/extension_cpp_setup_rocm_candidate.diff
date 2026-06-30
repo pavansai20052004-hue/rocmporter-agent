@@ -1,0 +1,39 @@
+--- extension_cpp/setup.py
++++ extension_cpp/setup.py
+@@ -26,12 +26,12 @@
+ 
+ def get_extensions():
+     debug_mode = os.getenv("DEBUG", "0") == "1"
+-    use_cuda = os.getenv("USE_CUDA", "1") == "1"
++    use_rocm = os.getenv("USE_ROCM", "0") == "1"
+     if debug_mode:
+         print("Compiling in debug mode")
+ 
+-    use_cuda = use_cuda and torch.cuda.is_available() and CUDA_HOME is not None
+-    extension = CUDAExtension if use_cuda else CppExtension
++    use_rocm = use_rocm and torch.cuda.is_available() and CUDA_HOME is not None
++    extension = CUDAExtension if use_rocm else CppExtension
+ 
+     extra_link_args = []
+     extra_compile_args = {
+@@ -53,11 +53,11 @@
+     extensions_dir = os.path.join(this_dir, library_name, "csrc")
+     sources = list(glob.glob(os.path.join(extensions_dir, "*.cpp")))
+ 
+-    extensions_cuda_dir = os.path.join(extensions_dir, "cuda")
+-    cuda_sources = list(glob.glob(os.path.join(extensions_cuda_dir, "*.cu")))
++    extensions_rocm_dir = os.path.join(extensions_dir, "rocm")
++    rocm_sources = list(glob.glob(os.path.join(extensions_rocm_dir, "*.cpp")))
+ 
+-    if use_cuda:
+-        sources += cuda_sources
++    if use_rocm:
++        sources += rocm_sources
+ 
+     ext_modules = [
+         extension(
+@@ -87,3 +87,4 @@
+     cmdclass={"build_ext": BuildExtension},
+     options={"bdist_wheel": {"py_limited_api": "cp39"}} if py_limited_api else {},
+ )
++
