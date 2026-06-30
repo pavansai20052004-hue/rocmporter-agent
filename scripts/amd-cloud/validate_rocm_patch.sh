@@ -255,6 +255,7 @@ fi
 TORCH_ROCM_PROBE_COMMAND="$(cat <<PY
 "$PYTHON_BIN" - <<'PYTHON_PROBE'
 import json
+import os
 import torch
 
 payload = {
@@ -266,11 +267,15 @@ payload = {
 if payload["deviceCount"]:
     payload["deviceName0"] = torch.cuda.get_device_name(0)
 print(json.dumps(payload, indent=2))
+if os.getenv("ROCMPORTER_REQUIRE_ROCM") == "1":
+    assert payload["torchHipVersion"], "PyTorch is not a ROCm/HIP build."
+    assert payload["cudaIsAvailableApi"], "ROCm GPU is not visible through torch.cuda."
+    assert payload["deviceCount"] > 0, "No ROCm GPU devices are visible."
 PYTHON_PROBE
 PY
 )"
 if [[ "$REQUIRE_ROCM" == "1" ]]; then
-  run_required_shell_step "torch_rocm_probe" "$TORCH_ROCM_PROBE_COMMAND"
+  run_required_shell_step "torch_rocm_probe" "ROCMPORTER_REQUIRE_ROCM=1 $TORCH_ROCM_PROBE_COMMAND"
 else
   run_optional_shell_step "torch_rocm_probe" "$TORCH_ROCM_PROBE_COMMAND"
 fi

@@ -9,9 +9,19 @@ on:
         default: https://github.com/pytorch/extension-cpp
         type: string
       patch_file:
-        description: Patch file path in this repository
-        required: true
+        description: Patch file path in this repository, used when artifact_run_id is empty
+        required: false
         default: examples/amd-cloud/extension_cpp_setup_rocm_candidate.diff
+        type: string
+      artifact_run_id:
+        description: Optional GitHub Actions run ID containing a ROCmPorter patch artifact
+        required: false
+        default: ""
+        type: string
+      artifact_name:
+        description: Artifact name from the ROCmPorter patch workflow run
+        required: false
+        default: rocmporter-artifacts-patch
         type: string
       project_subdir:
         description: Target project subdirectory inside cloned repo
@@ -59,20 +69,37 @@ jobs:
           command -v hipcc && hipcc --version || true
           python --version
 
+      - name: Download ROCmPorter patch artifact
+        if: ${{ inputs.artifact_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: rocmporter-artifacts
+
       - name: Validate ROCm patch
         shell: bash
         run: |
-          bash scripts/amd-cloud/validate_rocm_patch.sh \
-            --repo-url "${{ inputs.repo_url }}" \
-            --patch-file "${{ inputs.patch_file }}" \
-            --project-subdir "${{ inputs.project_subdir }}" \
-            --build-command "${{ inputs.build_command }}" \
-            --test-command "${{ inputs.test_command }}" \
-            --setup-python-env \
-            --require-rocm \
-            --torch-spec "${{ inputs.torch_spec }}" \
-            --pytorch-index-url "${{ inputs.pytorch_index_url }}" \
+          args=(
+            --repo-url "${{ inputs.repo_url }}"
+            --project-subdir "${{ inputs.project_subdir }}"
+            --build-command "${{ inputs.build_command }}"
+            --test-command "${{ inputs.test_command }}"
+            --setup-python-env
+            --require-rocm
+            --torch-spec "${{ inputs.torch_spec }}"
+            --pytorch-index-url "${{ inputs.pytorch_index_url }}"
             --output-dir amd-cloud-validation-output
+          )
+
+          if [[ -f rocmporter-artifacts/patch-result.json ]]; then
+            args+=(--bundle-dir rocmporter-artifacts)
+          else
+            args+=(--patch-file "${{ inputs.patch_file }}")
+          fi
+
+          bash scripts/amd-cloud/validate_rocm_patch.sh "${args[@]}"
 
       - name: Upload validation evidence
         if: always()
