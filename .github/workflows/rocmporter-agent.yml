@@ -1,0 +1,277 @@
+name: ROCmPorter Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: Public GitHub repository URL
+        required: true
+        type: string
+      finding_id:
+        description: Optional finding id for single-file patch generation
+        required: false
+        type: string
+      evidence_path:
+        description: Optional evidence path for single-file patch generation
+        required: false
+        type: string
+      model:
+        description: Ollama model to use on self-hosted patch runs
+        required: false
+        default: qwen2.5-coder:latest
+        type: string
+      pr_number:
+        description: Optional pull request number for GitHub review artifact generation
+        required: false
+        type: string
+      post_github_comment:
+        description: Post the generated review comment when a GitHub token is configured
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  quality_checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install Playwright browser
+        shell: bash
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Lint and build frontend
+        shell: bash
+        run: |
+          cd frontend
+          npm run lint
+          npm run build
+
+      - name: Run browser smoke tests
+        shell: bash
+        run: |
+          cd frontend
+          npm run test:e2e -- --project=desktop
+
+  validate_inputs:
+    runs-on: ubuntu-latest
+    outputs:
+      patch_enabled: ${{ steps.flags.outputs.patch_enabled }}
+      invalid: ${{ steps.flags.outputs.invalid }}
+    steps:
+      - id: flags
+        shell: bash
+        run: |
+          finding="${{ inputs.finding_id }}"
+          evidence="${{ inputs.evidence_path }}"
+
+          if [[ -n "$finding" && -n "$evidence" ]]; then
+            echo "patch_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "invalid=false" >> "$GITHUB_OUTPUT"
+          elif [[ -z "$finding" && -z "$evidence" ]]; then
+            echo "patch_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "invalid=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "patch_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "invalid=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  invalid_input:
+    needs: validate_inputs
+    if: needs.validate_inputs.outputs.invalid == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail with guidance
+        shell: bash
+        run: |
+          echo "Both finding_id and evidence_path must be provided together for patch generation." >&2
+          exit 1
+
+  scan_only:
+    needs: validate_inputs
+    if: needs.validate_inputs.outputs.invalid == 'false' && needs.validate_inputs.outputs.patch_enabled == 'false'
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GH_REVIEW_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        shell: bash
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run scan and build export bundle
+        shell: bash
+        run: |
+          cd backend
+          python rocmporter.py run "${{ inputs.repo_url }}" --export json,md,diff,html,zip,github --out ../artifacts
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocmporter-artifacts-scan
+          path: artifacts
+          if-no-files-found: warn
+
+  scan_and_patch:
+    needs: validate_inputs
+    if: needs.validate_inputs.outputs.invalid == 'false' && needs.validate_inputs.outputs.patch_enabled == 'true'
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ollama
+    env:
+      OLLAMA_HOST: ${{ vars.OLLAMA_HOST || 'http://127.0.0.1:11434' }}
+      GITHUB_TOKEN: ${{ secrets.GH_REVIEW_TOKEN }}
+      GITHUB_PAT: ${{ secrets.GH_REVIEW_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install backend dependencies
+        shell: bash
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install frontend tooling for syntax validation
+        shell: bash
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run scan, patch generation, and export bundle
+        shell: bash
+        run: |
+          cd backend
+          python rocmporter.py run "${{ inputs.repo_url }}" \
+            --finding-id "${{ inputs.finding_id }}" \
+            --evidence-path "${{ inputs.evidence_path }}" \
+            --model "${{ inputs.model }}" \
+            --export json,md,diff,html,zip,github \
+            --out ../artifacts
+
+      - name: Generate GitHub review artifact
+        if: always()
+        shell: bash
+        run: |
+          if [[ ! -f artifacts/patch-result.json ]]; then
+            exit 0
+          fi
+
+          cd backend
+          export SCAN_ID=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("../artifacts/patch-result.json").read_text(encoding="utf-8"))
+          print(data["scanId"])
+          PY
+          )
+          export PATCH_ID=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("../artifacts/patch-result.json").read_text(encoding="utf-8"))
+          print(data["patchId"])
+          PY
+          )
+
+          args=("$SCAN_ID" "--patch-id" "$PATCH_ID" "--out" "../artifacts")
+          if [[ -n "${{ inputs.pr_number }}" ]]; then
+            args+=("--pr-number" "${{ inputs.pr_number }}")
+          fi
+          if [[ "${{ inputs.post_github_comment }}" == "true" ]]; then
+            args+=("--post")
+          fi
+
+          python rocmporter.py github-review "${args[@]}"
+
+      - name: Summarize patch result
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          step_summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          summary_path = Path("artifacts/patch-result.json")
+          if not summary_path.exists():
+              with step_summary.open("a", encoding="utf-8") as handle:
+                  handle.write("## Patch Summary\nNo patch-result.json artifact was produced.\n")
+              raise SystemExit(0)
+
+          data = json.loads(summary_path.read_text(encoding="utf-8"))
+          lines = [
+              "## Patch Summary",
+              f"- Status: {data.get('status', 'unknown')}",
+              f"- File: {data.get('evidencePath', 'n/a')}",
+              f"- Model: {data.get('model', 'n/a')}",
+          ]
+          risk = data.get("riskAssessment") or {}
+          if risk:
+              lines.append(f"- Risk: {risk.get('score', 'n/a')}/100 ({risk.get('level', 'unknown')})")
+          validation = data.get("validation") or {}
+          if validation:
+              lines.append(f"- Validation: {validation.get('state', 'unknown')} via {validation.get('tool', 'n/a')}")
+          warnings = data.get("warnings") or []
+          if warnings:
+              lines.append("")
+              lines.append("### Warnings")
+              for item in warnings:
+                  lines.append(f"- {item.get('severity', 'warning')}: {item.get('message', '')}")
+
+          review_path = Path("artifacts/github-review.json")
+          if review_path.exists():
+              review = json.loads(review_path.read_text(encoding="utf-8"))
+              lines.append("")
+              lines.append("### GitHub Review")
+              lines.append(f"- Repository: {review.get('repository', 'n/a')}")
+              lines.append(f"- Review risk: {review.get('riskScore', 'n/a')}/100 ({review.get('riskLevel', 'unknown')})")
+              if review.get("posted"):
+                  lines.append(f"- Posted: {review.get('postUrl', 'yes')}")
+              elif review.get("postError"):
+                  lines.append(f"- Post warning: {review.get('postError')}")
+
+          with step_summary.open("a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocmporter-artifacts-patch
+          path: artifacts
+          if-no-files-found: warn

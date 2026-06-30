@@ -1,0 +1,14 @@
+frontend/node_modules/
+frontend/dist/
+backend/.venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/app/__pycache__/
+work/
+output/
+test-results/
+.playwright-cli/
+playwright-report/
+*.pyc
+.env
+backend/.env

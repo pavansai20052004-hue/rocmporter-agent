@@ -1,0 +1,36 @@
+name: ROCmPorter Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: Public GitHub repository URL
+        required: true
+      finding_id:
+        description: Optional finding id for single-file patch generation
+        required: false
+      evidence_path:
+        description: Optional evidence path for single-file patch generation
+        required: false
+
+jobs:
+  rocmporter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install -r requirements.txt
+      - name: Run scan
+        run: |
+          cd backend
+          python rocmporter.py run "${{ inputs.repo_url }}" --out ../artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocmporter-artifacts
+          path: artifacts
