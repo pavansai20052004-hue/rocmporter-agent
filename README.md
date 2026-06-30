@@ -84,6 +84,20 @@ ollama list
 ollama run qwen2.5-coder
 ```
 
+## Local-first mode
+
+Paid AMD cloud access is optional. The product can be developed and demoed locally with Ollama, CPU syntax validation, offline artifacts, and free scan-only GitHub Actions.
+
+From the repository root:
+
+```powershell
+.\scripts\local\check-local.ps1
+.\scripts\local\check-local.ps1 -RunChecks
+.\scripts\local\start-local-dev.ps1
+```
+
+See [docs/local-first-runbook.md](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/docs/local-first-runbook.md) for the complete local runbook.
+
 ## CLI
 
 From `backend/`:
@@ -143,7 +157,7 @@ A real workflow now lives at [.github/workflows/rocmporter-agent.yml](C:/Users/p
 - Scan-only runs on `ubuntu-latest`
 - Frontend quality checks run lint, build, and Playwright smoke tests
 - Scan plus patch runs on a labeled self-hosted runner with Ollama
-- AMD Developer Cloud ROCm validation runs from [.github/workflows/amd-devcloud-rocm-validation.yml](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/.github/workflows/amd-devcloud-rocm-validation.yml) on a self-hosted AMD/ROCm runner
+- AMD Developer Cloud ROCm validation runs from [.github/workflows/amd-devcloud-rocm-validation.yml](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/.github/workflows/amd-devcloud-rocm-validation.yml) on a self-hosted AMD/ROCm runner when free GPU access is available
 - Phase 4 can also generate GitHub review artifacts and optionally post a PR comment when a token is configured
 - Phase 5 adds PAT-based private repo access and line-aware review artifacts for PR workflows
 - Both upload the export bundle as a workflow artifact
@@ -152,4 +166,4 @@ A real workflow now lives at [.github/workflows/rocmporter-agent.yml](C:/Users/p
 
 - Add an LLM-written executive summary on top of the deterministic findings
 - Add direct web-based patch apply once the CLI rollback flow has enough mileage
-- Add report export and benchmark capture on AMD Developer Cloud
+- Add ROCm hardware benchmark capture when free AMD GPU access is available
