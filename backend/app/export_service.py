@@ -11,7 +11,7 @@ from html import escape
 from pathlib import Path
 
 from .github_review_service import build_review_payload, generate_inline_comments, infer_repository_slug, render_review_comment
-from .models import ExportFile, ExportResult, PatchResult, ScanReport, ScanStatus
+from .models import ExportFile, ExportResult, PatchResult, PatchVerificationReceipt, ScanReport, ScanStatus
 from .patch_service import patch_service
 from .service import REPO_ROOT, WORK_ROOT, scan_service
 
@@ -119,8 +119,7 @@ class ExportService:
         if patch_id and verification_receipts:
             not_ready = next((receipt for receipt in verification_receipts if not receipt.get("exportReady")), None)
             if not_ready is not None:
-                failed = [check for check in not_ready.get("checks", []) if check.get("state") == "failed"]
-                reason = failed[0]["message"] if failed else not_ready.get("summary", "Patch is not export-ready.")
+                reason = _export_block_reason(not_ready)
                 raise ValueError(f"Patch verification is not export-ready: {reason}")
 
         data_dir = root_dir / "data"
@@ -235,13 +234,17 @@ class ExportService:
                 repository_slug = infer_repository_slug(report.repo.url)
             except ValueError:
                 repository_slug = report.repo.name
+            verification_by_patch = {receipt.get("patchId"): receipt for receipt in verification_receipts}
 
             for patch in patches:
                 inline_comments = generate_inline_comments(report, patch)
-                comment_body = render_review_comment(report, patch, repository_slug, None, inline_comments)
+                verification_payload = verification_by_patch.get(patch.patchId)
+                verification = PatchVerificationReceipt.model_validate(verification_payload) if verification_payload else None
+                comment_body = render_review_comment(report, patch, repository_slug, None, inline_comments, verification)
                 review_payload = build_review_payload(
                     report,
                     patch,
+                    verification,
                     repository_slug,
                     None,
                     comment_body,
@@ -287,7 +290,7 @@ class ExportService:
             scanId=scan_id,
             patchId=patch_id,
             createdAt=datetime.now(UTC),
-            rootPath=str(root_dir.resolve()),
+            rootPath=f"export:{export_id}" if expose_downloads else str(root_dir.resolve()),
             files=files,
             warnings=warnings,
         )
@@ -332,10 +335,12 @@ class ExportService:
         expose_downloads: bool,
     ) -> ExportFile:
         download_path = None
+        display_path = str(path.resolve())
         if expose_downloads:
             relative = path.relative_to(ARTIFACT_ROOT / scan_id / export_id).as_posix()
+            display_path = relative
             download_path = f"/api/scans/{scan_id}/exports/{export_id}/download/{relative}"
-        return ExportFile(kind=kind, label=label, path=str(path.resolve()), downloadPath=download_path)
+        return ExportFile(kind=kind, label=label, path=display_path, downloadPath=download_path)
 
     def _write_json(self, path: Path, payload: object) -> None:
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -810,6 +815,29 @@ def _build_export_patch_payload(patch: PatchResult, artifacts: PatchBundleArtifa
     payload["savedPatchedFilePath"] = artifacts.patched_file_path
     payload["sourceFilePath"] = artifacts.source_file_path
     return payload
+
+
+def _export_block_reason(receipt: dict) -> str:
+    checks = receipt.get("checks", [])
+    priority_failed = [
+        check for check in checks if check.get("state") == "failed" and check.get("code") not in {"apply_precheck", "export_precheck"}
+    ]
+    if priority_failed:
+        return priority_failed[0].get("message") or "Patch is not export-ready."
+
+    warning_checks = [check for check in checks if check.get("state") == "warning"]
+    if warning_checks:
+        return warning_checks[0].get("message") or "Patch is not export-ready."
+
+    export_failed = next((check for check in checks if check.get("code") == "export_precheck" and check.get("state") == "failed"), None)
+    if export_failed and export_failed.get("message"):
+        return export_failed["message"]
+
+    apply_failed = next((check for check in checks if check.get("code") == "apply_precheck" and check.get("state") == "failed"), None)
+    if apply_failed and apply_failed.get("message"):
+        return apply_failed["message"]
+
+    return receipt.get("summary", "Patch is not export-ready.")
 
 
 export_service = ExportService()

@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "name": "extension-cpp-stable",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp_stable/setup.py",
+      "note": "Regression check for the stable ABI PyTorch extension setup path."
+    },
+    {
+      "name": "flash-attention-layer-norm",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "evidencePath": "csrc/layer_norm/setup.py",
+      "note": "Regression check for nested CUDA_HOME and nvcc probe handling."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "name": "flash-attention-auto",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "note": "Selection check: let ROCmPorter choose the strongest build-config evidence file automatically."
+    },
+    {
+      "name": "cuda-samples-auto",
+      "repoUrl": "https://github.com/NVIDIA/cuda-samples",
+      "findingId": "cuda_build_config",
+      "note": "Selection check: verify the top-level CMake entrypoint becomes the conservative partial patch target."
+    }
+  ]
+}

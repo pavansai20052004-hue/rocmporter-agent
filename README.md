@@ -1,6 +1,6 @@
 # ROCmPorter Agent
 
-ROCmPorter Agent is a hackathon MVP that scans a GitHub repository for CUDA and NVIDIA-specific assumptions, then produces a clean AMD ROCm migration report with evidence, risk level, next steps, export bundles, review-scored patch artifacts, and GitHub PR review outputs.
+ROCmPorter Agent is a local-first hackathon product that scans a GitHub repository for CUDA and NVIDIA-specific assumptions, then produces an AMD ROCm readiness report with evidence, risk level, next steps, export bundles, review-scored patch artifacts, and GitHub PR review outputs. Current verified benchmark artifacts are export-ready review bundles, not apply-ready migrations. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true`.
 
 ## Stack
 
@@ -21,6 +21,8 @@ ROCmPorter Agent is a hackathon MVP that scans a GitHub repository for CUDA and 
 10. Applies generated patches only inside the scanned workspace copy with backup-and-restore rollback
 11. Verifies patches with syntax checks, source drift checks, artifact hashes, and diff replay before apply/export
 12. Exports offline HTML, JSON, Markdown, diff, GitHub review, verification receipt, checksum, and zip artifacts for sharing or CI
+
+Live validation notes are tracked in [docs/live-demo-receipt.md](docs/live-demo-receipt.md).
 
 ## Run locally
 
@@ -44,7 +46,7 @@ Frontend:
 ```powershell
 cd frontend
 npm install
-npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev -- --host 127.0.0.1 --port 5178
 ```
 
 If the frontend is hosted separately from Vite dev proxy, create `frontend/.env` from `frontend/.env.example` and set:
@@ -56,7 +58,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 Backend CORS can be widened with:
 
 ```powershell
-APP_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+APP_CORS_ORIGINS=http://localhost:5178,http://127.0.0.1:5178
 ```
 
 Optional Ollama override:
@@ -96,7 +98,15 @@ From the repository root:
 .\scripts\local\start-local-dev.ps1
 ```
 
-See [docs/local-first-runbook.md](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/docs/local-first-runbook.md) for the complete local runbook.
+The local launcher writes logs and state under `work\local-dev\`. Use `.\scripts\local\status-local-dev.ps1` to verify the running stack and `.\scripts\local\stop-local-dev.ps1` to stop the backend/frontend services cleanly.
+
+See [docs/local-first-runbook.md](docs/local-first-runbook.md) for the complete local runbook.
+
+For judging and team rehearsals, use [docs/demo-script.md](docs/demo-script.md). It includes the live demo path, sample-mode fallback, ROCm proof substitute, GitHub Actions story, and pitch notes.
+
+For repeatable multi-repo patch benchmarking, use [benchmarks/submission-proof-cases.json](benchmarks/submission-proof-cases.json) for the fast 3-case submission proof, [benchmarks/demo-cases.json](benchmarks/demo-cases.json) for the broad smoke path, [benchmarks/quality-check-cases.json](benchmarks/quality-check-cases.json) for the focused conservative-partial benchmark, [benchmarks/selection-check-cases.json](benchmarks/selection-check-cases.json) to verify automatic evidence selection on larger repos, or [benchmarks/judge-quality-cases.json](benchmarks/judge-quality-cases.json) as the candidate pinned 6-case judge-quality patch suite.
+
+Latest verified submission proof: `work\benchmark-runs\submission-proof-v2\summary.json` completed 3 of 3 cases with 3 export-ready review artifacts, 0 export blocks, 0 infrastructure failures, and 0 high-risk patches.
 
 ## CLI
 
@@ -111,9 +121,14 @@ From `backend/`:
 .\.venv\Scripts\python rocmporter.py rollback-patch --apply-id apply_id
 .\.venv\Scripts\python rocmporter.py run https://github.com/pytorch/extension-cpp --finding-id cuda_build_config --evidence-path extension_cpp/setup.py --export json,md,diff,html,zip,github
 .\.venv\Scripts\python rocmporter.py github-review scan_id --patch-id patch_id --pr-number 42
+.\.venv\Scripts\python rocmporter.py benchmark --cases ..\benchmarks\submission-proof-cases.json --model qwen2.5-coder:latest --out ..\work\benchmark-runs\submission-proof-local
+.\.venv\Scripts\python rocmporter.py benchmark --cases ..\benchmarks\demo-cases.json --model qwen2.5-coder:latest
+.\.venv\Scripts\python rocmporter.py benchmark --cases ..\benchmarks\judge-quality-cases.json --model qwen2.5-coder:latest --out ..\work\benchmark-runs\judge-quality-local
 ```
 
 CLI artifacts are written under `work/cli_exports/` by default.
+
+Benchmark artifacts are written under `work/benchmarks/` by default, or a custom `--out` directory when provided. Fresh benchmark runs record `qualityLane`, `judgeSignal`, `runStatus`, planned case count, and remaining case count so blocked patches, review-ready artifacts, scanner gaps, generation failures, infrastructure failures, and interrupted runs are visible in `summary.json` and `summary.md`.
 
 Generated export bundles include:
 
@@ -148,17 +163,18 @@ Backend:
 
 ```powershell
 python -m compileall backend\app
+python -m unittest discover -s backend\tests
 ```
 
 ## GitHub Action
 
-A real workflow now lives at [.github/workflows/rocmporter-agent.yml](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/.github/workflows/rocmporter-agent.yml).
+A real workflow now lives at [.github/workflows/rocmporter-agent.yml](.github/workflows/rocmporter-agent.yml).
 
 - Scan-only runs on `ubuntu-latest`
 - Frontend quality checks run lint, build, and Playwright smoke tests
 - Scan plus patch runs on a labeled self-hosted runner with Ollama
-- AMD Developer Cloud ROCm validation runs from [.github/workflows/amd-devcloud-rocm-validation.yml](C:/Users/pavansai/OneDrive/Desktop/AMD_HACKTHON/.github/workflows/amd-devcloud-rocm-validation.yml) on a self-hosted AMD/ROCm runner when free GPU access is available
-- Phase 4 can also generate GitHub review artifacts and optionally post a PR comment when a token is configured
+- AMD Developer Cloud ROCm validation runs from [.github/workflows/amd-devcloud-rocm-validation.yml](.github/workflows/amd-devcloud-rocm-validation.yml) on a self-hosted AMD/ROCm runner when free GPU access is available
+- Phase 4 can also generate GitHub review artifacts. Posting is optional and requires `--post`, a PR number, export-ready verification, and a token with write permission; inline comments are filtered against the current PR diff.
 - Phase 5 adds PAT-based private repo access and line-aware review artifacts for PR workflows
 - Both upload the export bundle as a workflow artifact
 

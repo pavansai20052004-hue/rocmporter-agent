@@ -125,6 +125,13 @@ if ($RunChecks) {
         } else {
             Write-Check "ok" "Backend compile check passed"
         }
+
+        & $Python -m unittest discover -s (Join-Path $BackendDir "tests")
+        if ($LASTEXITCODE -ne 0) {
+            Add-Failure "Backend unit tests failed"
+        } else {
+            Write-Check "ok" "Backend unit tests passed"
+        }
     }
 
     if ($hasNpm -and (Test-Path (Join-Path $FrontendDir "node_modules"))) {
@@ -135,6 +142,13 @@ if ($RunChecks) {
                 Add-Failure "Frontend lint failed"
             } else {
                 Write-Check "ok" "Frontend lint passed"
+            }
+
+            & npm run build
+            if ($LASTEXITCODE -ne 0) {
+                Add-Failure "Frontend build failed"
+            } else {
+                Write-Check "ok" "Frontend build passed"
             }
 
             & npm run test:e2e

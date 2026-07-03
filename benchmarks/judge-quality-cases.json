@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "name": "extension-cpp-build",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp/setup.py",
+      "note": "Small PyTorch extension build path; fastest sanity proof for the full scan-patch-export-review flow."
+    },
+    {
+      "name": "extension-cpp-stable-abi",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp_stable/setup.py",
+      "note": "Stable ABI setup.py path; checks conservative PyTorch ROCm guard behavior."
+    },
+    {
+      "name": "cuda-samples-cmake",
+      "repoUrl": "https://github.com/NVIDIA/cuda-samples",
+      "findingId": "cuda_build_config",
+      "evidencePath": "CMakeLists.txt",
+      "note": "Top-level CUDA CMake project; checks large CUDA repository evidence selection and review-only export behavior."
+    },
+    {
+      "name": "flash-attention-root-setup",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "evidencePath": "setup.py",
+      "note": "Root FlashAttention setup path; checks existing ROCm branch handling and NVCC_THREADS guard behavior."
+    },
+    {
+      "name": "flash-attention-fused-dense",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "evidencePath": "csrc/fused_dense_lib/setup.py",
+      "note": "Advanced CUDA extension packaging case where review/export is safer than direct workspace apply."
+    },
+    {
+      "name": "flash-attention-layer-norm",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "evidencePath": "csrc/layer_norm/setup.py",
+      "note": "Nested setup.py with NVCC probe logic; checks deterministic partial patch quality."
+    }
+  ]
+}

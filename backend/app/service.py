@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .analyzer import build_report
 from .models import ScanProgress, ScanReport, ScanStatus
-from .repo_fetcher import clone_repo, repo_name_from_url, validate_repo_url
+from .repo_fetcher import clone_repo, is_transient_clone_failure, repo_name_from_url, validate_repo_url
 
 
 WORK_ROOT = Path(__file__).resolve().parents[2] / "work"
@@ -79,7 +79,13 @@ class ScanService:
 
         try:
             self._update(record, status="running", stage="cloning", percent=12)
-            default_branch = clone_repo(record.repo_url, repo_path)
+            try:
+                default_branch = clone_repo(record.repo_url, repo_path)
+            except Exception as exc:
+                cached_branch = self._restore_cached_repo_snapshot(record.repo_url, scan_id, repo_path, str(exc))
+                if cached_branch is None:
+                    raise
+                default_branch = cached_branch
 
             self._update(record, status="running", stage="detecting", percent=42)
             repo_name = repo_name_from_url(record.repo_url)
@@ -107,6 +113,48 @@ class ScanService:
                 continue
             # Retain other scan repos; lifecycle cleanup can be expanded later.
             continue
+
+    def _restore_cached_repo_snapshot(
+        self,
+        repo_url: str,
+        scan_id: str,
+        target_repo_path: Path,
+        clone_error: str,
+    ) -> str | None:
+        if not is_transient_clone_failure(clone_error):
+            return None
+
+        cached = self._find_cached_repo_snapshot(repo_url, scan_id)
+        if cached is None:
+            return None
+
+        cached_scan_id, default_branch = cached
+        cached_repo_path = REPO_ROOT / cached_scan_id
+        _replace_repo_tree(cached_repo_path, target_repo_path)
+        self._update(record=self._records[scan_id], status="running", stage="reusing_cache", percent=26)
+        return default_branch
+
+    def _find_cached_repo_snapshot(self, repo_url: str, current_scan_id: str) -> tuple[str, str] | None:
+        candidates: list[tuple[float, str, str]] = []
+        with self._lock:
+            records = list(self._records.values())
+
+        for record in records:
+            if record.scan_id == current_scan_id:
+                continue
+            if record.repo_url != repo_url or record.report is None:
+                continue
+            repo_path = REPO_ROOT / record.scan_id
+            report_path = SCAN_ROOT / f"{record.scan_id}.report.json"
+            if not repo_path.exists() or not report_path.exists():
+                continue
+            candidates.append((report_path.stat().st_mtime, record.scan_id, record.report.repo.defaultBranch))
+
+        if not candidates:
+            return None
+
+        _, scan_id, branch = max(candidates, key=lambda item: item[0])
+        return scan_id, branch
 
     def _create_record(self, normalized_url: str) -> ScanRecord:
         scan_id = f"scan_{uuid.uuid4().hex[:10]}"
@@ -175,6 +223,15 @@ class ScanService:
         if record.report is not None:
             report_path = SCAN_ROOT / f"{record.scan_id}.report.json"
             report_path.write_text(record.report.model_dump_json(indent=2), encoding="utf-8")
+
+
+def _replace_repo_tree(source: Path, target: Path) -> None:
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
+    if target.exists():
+        shutil.copytree(source, target, dirs_exist_ok=True)
+    else:
+        shutil.copytree(source, target)
 
 
 scan_service = ScanService()

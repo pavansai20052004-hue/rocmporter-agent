@@ -1,13 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-    ...options,
-  })
+  let response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+      ...options,
+    })
+  } catch (error) {
+    throw new Error(formatNetworkError(path, error))
+  }
 
   if (!response.ok) {
     let message = 'Request failed'
@@ -21,6 +26,25 @@ async function request(path, options = {}) {
   }
 
   return response.json()
+}
+
+function formatNetworkError(path, error) {
+  if (path.startsWith('/api/ollama')) {
+    return 'Local Ollama or the ROCmPorter API is not reachable yet. Start Ollama and the backend, then refresh model status.'
+  }
+  if (path.includes('/patches')) {
+    return 'Patch generation is unavailable because the local backend or model service is not reachable. You can load the sample scan for a no-network demo.'
+  }
+  if (path.includes('/exports')) {
+    return 'Export failed because the backend is not reachable. Start the local API, or use sample mode for a guided demo.'
+  }
+  if (path.includes('/github-review')) {
+    return 'GitHub review generation needs the backend running. No token was sent from the browser.'
+  }
+  if (path.includes('/scans')) {
+    return 'Repository scan could not start. Check the backend server, internet access, and repository URL, or load the sample scan.'
+  }
+  return error?.message ?? 'The local ROCmPorter API is not reachable.'
 }
 
 function formatApiError(detail) {

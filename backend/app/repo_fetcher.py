@@ -4,6 +4,7 @@ import base64
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -37,23 +38,26 @@ def clone_repo(repo_url: str, target_dir: Path) -> str:
         shutil.rmtree(target_dir)
 
     command = _clone_command(repo_url, target_dir)
-    try:
-        completed = subprocess.run(
-            command,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except FileNotFoundError as exc:
-        raise RuntimeError("Git is required for repository cloning. Install Git and make sure it is available in PATH.") from exc
-    if completed.returncode != 0:
-        message = completed.stderr.strip() or completed.stdout.strip() or "Unable to clone repository"
-        if "Repository not found" in message or "Authentication failed" in message or "could not read Username" in message:
-            message = (
-                f"{message}\nIf this repository is private, add a GitHub token to backend/.env "
-                "using GITHUB_PAT=your_token and retry."
+    completed = None
+    for attempt in range(2):
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
+        except FileNotFoundError as exc:
+            raise RuntimeError("Git is required for repository cloning. Install Git and make sure it is available in PATH.") from exc
+
+        if completed.returncode == 0:
+            break
+
+        message = _clone_failure_message(completed)
+        if attempt == 0 and is_transient_clone_failure(message):
+            time.sleep(1.0)
+            continue
         raise RuntimeError(message)
 
     branch = subprocess.run(
@@ -76,3 +80,29 @@ def _clone_command(repo_url: str, target_dir: Path) -> list[str]:
         command.extend(["-c", f"http.extraheader=AUTHORIZATION: basic {auth}"])
     command.extend([repo_url, str(target_dir)])
     return command
+
+
+def _clone_failure_message(completed: subprocess.CompletedProcess[str]) -> str:
+    message = completed.stderr.strip() or completed.stdout.strip() or "Unable to clone repository"
+    if "Repository not found" in message or "Authentication failed" in message or "could not read Username" in message:
+        message = (
+            f"{message}\nIf this repository is private, add a GitHub token to backend/.env "
+            "using GITHUB_PAT=your_token and retry."
+        )
+    return message
+
+
+def is_transient_clone_failure(message: str) -> bool:
+    lowered = message.lower()
+    retryable_markers = (
+        "could not resolve host",
+        "temporary failure in name resolution",
+        "connection timed out",
+        "operation timed out",
+        "connection reset",
+        "failed to connect",
+        "timed out after",
+        "timeout expired",
+        "tls handshake timeout",
+    )
+    return any(marker in lowered for marker in retryable_markers)

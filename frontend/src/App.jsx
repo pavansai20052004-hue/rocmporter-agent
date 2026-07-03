@@ -16,6 +16,18 @@ import {
   verifyPatch,
   warmOllamaModel,
 } from './lib/api'
+import {
+  benchmarkProof,
+  buildSampleApplyResult,
+  buildSamplePatch,
+  demoRepositories,
+  localFirstFacts,
+  sampleExportBundle,
+  sampleGitHubReview,
+  sampleReport,
+  sampleScan,
+  sampleVerification,
+} from './lib/sampleData'
 
 const DEFAULT_MODEL = 'qwen2.5-coder'
 const FALLBACK_MODEL = `${DEFAULT_MODEL}:latest`
@@ -54,6 +66,7 @@ function App() {
   const [isGeneratingReview, setIsGeneratingReview] = useState(false)
   const [githubPrNumber, setGitHubPrNumber] = useState('')
   const [shouldPostReview, setShouldPostReview] = useState(false)
+  const [isDemoMode, setIsDemoMode] = useState(false)
   const patchInFlight = patchJob?.status === 'queued' || patchJob?.status === 'running'
 
   const applyOllamaState = useCallback(
@@ -148,6 +161,10 @@ function App() {
   }, [report, scan])
 
   useEffect(() => {
+    if (isDemoMode) {
+      return undefined
+    }
+
     if (!scan || !report || patchJob || isRequestingPatch) {
       return undefined
     }
@@ -168,7 +185,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [isRequestingPatch, patchJob, report, scan])
+  }, [isDemoMode, isRequestingPatch, patchJob, report, scan])
 
   useEffect(() => {
     if (!patchJob || patchJob.status === 'completed' || patchJob.status === 'failed') {
@@ -241,6 +258,7 @@ function App() {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    setIsDemoMode(false)
     setError('')
     setScan(null)
     setPatchError('')
@@ -270,8 +288,57 @@ function App() {
     }
   }
 
+  function handleLoadSampleScan() {
+    setIsDemoMode(true)
+    setRepoUrl(sampleScan.repoUrl)
+    setActiveFilter('all')
+    setError('')
+    setPatchError('')
+    setApplyError('')
+    setVerificationError('')
+    setExportError('')
+    setGitHubReviewError('')
+    setIsSubmitting(false)
+    setIsRequestingPatch(false)
+    setIsRepairingPatch(false)
+    setIsVerifyingPatch(false)
+    setIsApplyingPatch(false)
+    setIsRollingBackPatch(false)
+    setIsExporting(false)
+    setIsGeneratingReview(false)
+    setPendingPatchTarget(null)
+    setScan(sampleScan)
+    setReport(sampleReport)
+    setPatchJob(null)
+    setPatchApply(null)
+    setPatchVerification(null)
+    setExportBundle(null)
+    setGitHubReview(null)
+  }
+
+  function handleChooseDemoRepository(url) {
+    setIsDemoMode(false)
+    setRepoUrl(url)
+    setError('')
+  }
+
   async function handleGeneratePatch(finding, evidence) {
     if (!scan || isRequestingPatch || isPatchInFlight(patchJob)) {
+      return
+    }
+
+    if (isDemoMode) {
+      const samplePatch = buildSamplePatch(evidence.path, finding.id)
+      setPatchError('')
+      setApplyError('')
+      setVerificationError('')
+      setExportError('')
+      setGitHubReviewError('')
+      setPatchJob(samplePatch)
+      setPatchApply(null)
+      setPatchVerification(sampleVerification)
+      setExportBundle(null)
+      setGitHubReview(null)
       return
     }
 
@@ -313,6 +380,12 @@ function App() {
 
   async function handleApplyPatch() {
     if (!scan || !patchJob || patchJob.status !== 'completed') {
+      return
+    }
+
+    if (isDemoMode) {
+      setApplyError('')
+      setPatchApply(buildSampleApplyResult())
       return
     }
 
@@ -368,6 +441,12 @@ function App() {
       return
     }
 
+    if (isDemoMode) {
+      setVerificationError('')
+      setPatchVerification(sampleVerification)
+      return
+    }
+
     setIsVerifyingPatch(true)
     setVerificationError('')
     try {
@@ -382,6 +461,18 @@ function App() {
 
   async function handleRollbackPatch() {
     if (!patchApply?.applyId) {
+      return
+    }
+
+    if (isDemoMode) {
+      setApplyError('')
+      setPatchApply({
+        ...patchApply,
+        status: 'rolled_back',
+        updatedAt: new Date().toISOString(),
+        rollbackAvailable: false,
+        rollbackReason: 'Sample workspace apply was rolled back in demo mode.',
+      })
       return
     }
 
@@ -401,6 +492,16 @@ function App() {
     if (!scan || !report) {
       return
     }
+
+    if (isDemoMode) {
+      setExportError('')
+      setExportBundle({
+        ...sampleExportBundle,
+        patchId: includePatch && patchJob?.status === 'completed' ? patchJob.patchId : null,
+      })
+      return
+    }
+
     if (includePatch && exportBlockReason) {
       setExportError(exportBlockReason)
       return
@@ -427,6 +528,23 @@ function App() {
       return
     }
 
+    const reviewBlockReason = getGitHubReviewBlockReason({
+      patchJob,
+      verification: currentPatchVerification,
+      exportBlockReason,
+      isDemoMode,
+    })
+    if (reviewBlockReason) {
+      setGitHubReviewError(reviewBlockReason)
+      return
+    }
+
+    if (isDemoMode) {
+      setGitHubReviewError('')
+      setGitHubReview(sampleGitHubReview)
+      return
+    }
+
     setIsGeneratingReview(true)
     setGitHubReviewError('')
 
@@ -434,7 +552,7 @@ function App() {
       const nextReview = await createGitHubReview(scan.scanId, {
         patchId: patchJob.patchId,
         pullRequestNumber: githubPrNumber ? Number(githubPrNumber) : null,
-        postComment: shouldPostReview && Boolean(githubPrNumber),
+        postComment: shouldPostReview && Boolean(githubPrNumber) && Boolean(currentPatchVerification?.exportReady),
       })
       setGitHubReview(nextReview)
     } catch (nextError) {
@@ -446,6 +564,7 @@ function App() {
 
   function handleDownload(file) {
     if (!file.downloadPath) {
+      setExportError('Sample files are illustrative. Run a live export to download real report artifacts.')
       return
     }
     window.open(getApiUrl(file.downloadPath), '_blank', 'noopener,noreferrer')
@@ -513,14 +632,31 @@ function App() {
   const applyBlockReason = getApplyBlockReason(patchJob, patchApply)
   const verificationBlockReason = getVerificationBlockReason(patchJob, currentPatchVerification, 'apply')
   const exportBlockReason = getVerificationBlockReason(patchJob, currentPatchVerification, 'export')
-  const canApplyCurrentPatch = latestPatchReady && !hasActiveWorkspaceApply && !applyBlockReason && !verificationBlockReason
+  const canApplyCurrentPatch =
+    !isDemoMode && latestPatchReady && !hasActiveWorkspaceApply && !applyBlockReason && !verificationBlockReason
   const canRepairCurrentPatch = latestPatchReady && hasResponseArtifactLeak(patchJob) && !isRepairingPatch
   const canVerifyCurrentPatch = latestPatchReady && !isVerifyingPatch && !isRepairingPatch && !isApplyingPatch
   const canExportCurrentPatch = latestPatchReady && !isExporting && !exportBlockReason
+  const githubReviewBlockReason = getGitHubReviewBlockReason({
+    patchJob,
+    verification: currentPatchVerification,
+    exportBlockReason,
+    isDemoMode,
+  })
+  const canBuildGitHubReview = latestPatchReady && !isGeneratingReview && !githubReviewBlockReason
+  const canPostGitHubReview = canBuildGitHubReview && !isDemoMode
   const exportFiles = useMemo(() => prioritizeExportFiles(exportBundle?.files ?? []), [exportBundle])
   const workspaceClassName = report ? 'workspace workspace-has-report' : 'workspace'
-  const canGeneratePatch = Boolean(scan) && !isPatchBusy && ollamaReadiness.canGenerate
+  const canGeneratePatch = Boolean(scan) && !isPatchBusy && (isDemoMode || ollamaReadiness.canGenerate)
   const patchStatusCopy = buildPatchStatusCopy(patchJob, pendingPatchTarget, selectedModel, ollamaReadiness)
+  const decisionSummary = buildPatchDecisionSummary({
+    patchJob,
+    verification: currentPatchVerification,
+    applyBlockReason,
+    exportBlockReason,
+    isDemoMode,
+  })
+  const ollamaFacts = buildOllamaFacts(ollamaStatus)
 
   return (
     <div className="app-shell">
@@ -532,14 +668,22 @@ function App() {
         <div className="topbar-chip">{scan?.status ?? 'idle'}</div>
       </header>
 
+      <BenchmarkProofPanel proof={benchmarkProof} />
+
       <main className={workspaceClassName}>
         <aside className="control-panel">
           <section className="panel-card hero-panel">
             <p className="section-label">Repository Intake</p>
-            <h2>Scan a GitHub repo and generate single-file ROCm patches.</h2>
+            <h2>Scan a GitHub repo and generate single-file ROCm review artifacts.</h2>
             <p className="panel-copy">
               The scan stays evidence-driven, the patch flow stays reviewable, and the export bundle stays auditable.
             </p>
+
+            <ol className="flow-steps">
+              <li>Scan a repository for CUDA/NVIDIA assumptions.</li>
+              <li>Choose one evidence file and generate a full or conservative partial patch artifact.</li>
+              <li>Verify, export, and create a GitHub-ready review artifact.</li>
+            </ol>
 
             <form className="repo-form" onSubmit={handleSubmit}>
               <label htmlFor="repo-url">Public GitHub repository URL</label>
@@ -555,7 +699,34 @@ function App() {
               <button className="primary-button" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Starting Scan...' : 'Analyze Repository'}
               </button>
+              <button className="secondary-button full-width-button" type="button" onClick={handleLoadSampleScan}>
+                Load Sample Scan
+              </button>
             </form>
+
+            <div className="demo-repo-list">
+              <span className="metric-label">Known Demo Repos</span>
+              {demoRepositories.map((repo) => (
+                <button
+                  key={repo.url}
+                  type="button"
+                  className="repo-chip"
+                  title={repo.note}
+                  onClick={() => handleChooseDemoRepository(repo.url)}
+                >
+                  {repo.name}
+                </button>
+              ))}
+            </div>
+
+            {isDemoMode ? (
+              <div className="warning-banner low">
+                <strong>sample demo mode</strong>
+                <span>
+                  Loaded a realistic extension-cpp scan so the pitch flow works even when internet, GitHub, or Ollama is slow.
+                </span>
+              </div>
+            ) : null}
 
             {error ? <p className="error-banner">{error}</p> : null}
           </section>
@@ -591,6 +762,23 @@ function App() {
               <span>{ollamaReadiness.message}</span>
             </div>
             <p className="status-hint">{formatOllamaMeta(ollamaStatus)}</p>
+            {ollamaFacts.length ? (
+              <div className="ollama-fact-grid">
+                {ollamaFacts.map((fact) => (
+                  <div key={fact.label} className="ollama-fact-card">
+                    <span className="metric-label">{fact.label}</span>
+                    <strong>{fact.value}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="local-first-fact-row" aria-label="Local-first operating facts">
+              {localFirstFacts.map((fact) => (
+                <span key={fact} className="local-first-fact-chip">
+                  {fact}
+                </span>
+              ))}
+            </div>
             {ollamaError ? <p className="error-banner">{ollamaError}</p> : null}
             <div className="compact-button-row">
               <button
@@ -745,6 +933,24 @@ function App() {
               <h3>{activeFinding ? activeFinding.title : 'Generate a patch from any evidence file'}</h3>
               <p className="status-copy">{patchStatusCopy}</p>
 
+              {decisionSummary ? (
+                <div className={`decision-strip ${decisionSummary.severity}`}>
+                  <div className="decision-copy">
+                    <span className="metric-label">{decisionSummary.label}</span>
+                    <strong>{decisionSummary.title}</strong>
+                    <p>{decisionSummary.message}</p>
+                  </div>
+                  <div className="decision-pill-row">
+                    <span className={`decision-pill ${decisionSummary.applyReady ? 'ready' : 'blocked'}`}>
+                      Apply {decisionSummary.applyReady ? 'ready' : 'blocked'}
+                    </span>
+                    <span className={`decision-pill ${decisionSummary.exportReady ? 'ready' : 'blocked'}`}>
+                      Export {decisionSummary.exportReady ? 'ready' : 'blocked'}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
               {patchError ? <p className="error-banner">{patchError}</p> : null}
               {applyError ? <p className="error-banner">{applyError}</p> : null}
               {verificationError ? <p className="error-banner">{verificationError}</p> : null}
@@ -757,6 +963,9 @@ function App() {
 
               {patchJob ? (
                 <div className="patch-result">
+                  {isDemoMode ? (
+                    <SamplePreviewNote text="Sample preview only. Patch paths and receipts are realistic, but workspace apply stays disabled until you run a live repository flow." />
+                  ) : null}
                   {isPatchBusy ? (
                     <div className="warning-banner low">
                       <strong>local patch generation</strong>
@@ -936,6 +1145,8 @@ function App() {
                         <p className="status-hint">
                           Roll back the current workspace apply before writing a different patch into the scanned repo copy.
                         </p>
+                      ) : isDemoMode ? (
+                        <p className="status-hint">Sample preview does not write into the scanned workspace. Run a live scan to enable apply.</p>
                       ) : applyBlockReason ? (
                         <p className="status-hint">{applyBlockReason}</p>
                       ) : verificationBlockReason ? (
@@ -946,8 +1157,8 @@ function App() {
 
                   {patchVerification ? (
                     <div className="patch-copy-block">
-                      <div className={`warning-banner ${verificationSeverity(patchVerification.state)}`}>
-                        <strong>verification {patchVerification.state}</strong>
+                      <div className={`warning-banner ${verificationSeverity(patchVerification)}`}>
+                        <strong>{verificationLabel(patchVerification)}</strong>
                         <span>{patchVerification.summary}</span>
                       </div>
                       <div className="patch-meta-grid">
@@ -1023,7 +1234,7 @@ function App() {
                       <div className="section-head compact-head">
                         <div>
                           <p className="section-label">Unified Diff</p>
-                          <h4>Export-ready patch output</h4>
+                          <h4>Unified diff artifact</h4>
                         </div>
                       </div>
                       <pre className="diff-code">{patchJob.diff}</pre>
@@ -1037,12 +1248,16 @@ function App() {
 
             <section className="panel-card github-panel">
               <p className="section-label">GitHub Review</p>
-              <h3>PR-ready comment and suggestion artifact</h3>
+              <h3>Export-gated review artifact</h3>
               <p className="status-copy">
                 {githubReview
                   ? `Review artifact ready for ${githubReview.repository}`
-                  : 'Generate a copy-ready GitHub review comment from the current patch.'}
+                  : githubReviewBlockReason ||
+                    'Generate a copy-ready GitHub review comment from an export-ready patch.'}
               </p>
+              {isDemoMode ? (
+                <SamplePreviewNote text="Sample preview labels this review as a workflow artifact. Use a live patch run before posting or copying anything into a real pull request." />
+              ) : null}
 
               <div className="github-controls">
                 <label className="select-label" htmlFor="pr-number">
@@ -1061,15 +1276,16 @@ function App() {
                   <input
                     type="checkbox"
                     checked={shouldPostReview}
+                    disabled={!canPostGitHubReview}
                     onChange={(event) => setShouldPostReview(event.target.checked)}
                   />
-                  <span>Post comment when the backend has a GitHub token configured</span>
+                  <span>Post only after export-ready verification and backend token setup</span>
                 </label>
                 <div className="github-button-row">
                   <button
                     type="button"
                     className="secondary-button"
-                    disabled={!latestPatchReady || isGeneratingReview}
+                    disabled={!canBuildGitHubReview}
                     onClick={handleCreateGitHubReview}
                   >
                     {isGeneratingReview ? 'Building Review...' : 'Build GitHub Review'}
@@ -1085,6 +1301,7 @@ function App() {
                 </div>
               </div>
 
+              {githubReviewBlockReason ? <p className="status-hint">{githubReviewBlockReason}</p> : null}
               {githubReviewError ? <p className="error-banner">{githubReviewError}</p> : null}
 
               {githubReview ? (
@@ -1099,6 +1316,14 @@ function App() {
                     <div className="metric-card tight-card">
                       <span className="metric-label">Repository</span>
                       <strong>{githubReview.repository}</strong>
+                    </div>
+                    <div className="metric-card tight-card">
+                      <span className="metric-label">Export Ready</span>
+                      <strong>{githubReview.exportReady ? 'yes' : 'no'}</strong>
+                    </div>
+                    <div className="metric-card tight-card">
+                      <span className="metric-label">Apply Ready</span>
+                      <strong>{githubReview.applyReady ? 'yes' : 'no'}</strong>
                     </div>
                   </div>
 
@@ -1129,7 +1354,7 @@ function App() {
                     <div className="section-head compact-head">
                       <div>
                         <p className="section-label">Comment Preview</p>
-                        <h4>PR summary and suggested patch text</h4>
+                        <h4>Verified review summary and suggested patch text</h4>
                       </div>
                     </div>
                     <pre className="diff-code">{githubReview.commentBody}</pre>
@@ -1148,9 +1373,15 @@ function App() {
                   ? `Bundle ready at ${exportBundle.rootPath}`
                   : 'Build a bundle after the scan. Add the patch artifact when you want report plus diff together.'}
               </p>
+              {isDemoMode ? (
+                <SamplePreviewNote text="Sample preview bundle entries are illustrative. Run the same flow on a live repository when you need downloadable artifacts." />
+              ) : null}
 
               {exportError ? <p className="error-banner">{exportError}</p> : null}
               {exportBlockReason ? <p className="status-hint">{exportBlockReason}</p> : null}
+              {exportBundle && patchJob?.patchMode === 'partial' && currentPatchVerification?.exportReady && !currentPatchVerification?.applyReady ? (
+                <p className="status-hint">Export-ready review bundle; workspace apply is still blocked.</p>
+              ) : null}
 
               {exportBundle?.warnings?.length ? (
                 <div className="patch-copy-block">
@@ -1171,8 +1402,13 @@ function App() {
                         <strong>{file.label}</strong>
                         <span className="path-copy">{file.path}</span>
                       </div>
-                      <button type="button" className="secondary-button" onClick={() => handleDownload(file)}>
-                        Download
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={isDemoMode}
+                        onClick={() => handleDownload(file)}
+                      >
+                        {isDemoMode ? 'Preview Only' : 'Download'}
                       </button>
                     </div>
                   ))}
@@ -1218,6 +1454,44 @@ function App() {
 
 function EmptyState({ text }) {
   return <p className="empty-state">{text}</p>
+}
+
+function SamplePreviewNote({ text }) {
+  return (
+    <div className="warning-banner low">
+      <strong>sample preview</strong>
+      <span>{text}</span>
+    </div>
+  )
+}
+
+function BenchmarkProofPanel({ proof }) {
+  return (
+    <section className="benchmark-proof-bar" aria-labelledby="benchmark-proof-heading">
+      <div className="proof-bar-copy">
+        <div>
+          <p className="section-label">Benchmark Proof</p>
+          <h3 id="benchmark-proof-heading">{proof.headline}</h3>
+        </div>
+        <p className="status-hint">
+          Latest focused run: 4/4 complete, 4 export-ready, 0 high-risk. Apply remains blocked by design until ROCm validation.
+        </p>
+      </div>
+
+      <div className="proof-bar-metrics" aria-label={`${proof.runName} benchmark summary`}>
+        {proof.totals.map((metric) => (
+          <div key={metric.label} className="proof-bar-metric">
+            <span className="metric-label">{metric.label}</span>
+            <strong>{metric.value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <p className="status-hint proof-run-path">
+        {proof.runName} - {proof.summaryPath}
+      </p>
+    </section>
+  )
 }
 
 function countBySeverity(findings) {
@@ -1484,6 +1758,129 @@ function getVerificationBlockReason(patchJob, verification, action) {
   return ''
 }
 
+function getGitHubReviewBlockReason({ patchJob, verification, exportBlockReason, isDemoMode }) {
+  if (!patchJob || patchJob.status !== 'completed') {
+    return 'Generate a completed patch before building a GitHub review artifact.'
+  }
+  if (isDemoMode) {
+    return ''
+  }
+  if (!verification || verification.patchId !== patchJob.patchId) {
+    return 'Verify this patch before building a GitHub review artifact.'
+  }
+  if (exportBlockReason) {
+    return exportBlockReason
+  }
+  if (!verification.exportReady) {
+    return 'Patch verification is not export-ready.'
+  }
+  return ''
+}
+
+function buildPatchDecisionSummary({ patchJob, verification, applyBlockReason, exportBlockReason, isDemoMode }) {
+  if (!patchJob || patchJob.status !== 'completed') {
+    return null
+  }
+
+  if (isDemoMode) {
+    return {
+      label: 'Sample Preview',
+      title: 'Preview the review flow, not a live workspace write',
+      message:
+        'This is sample-mode evidence for the demo path. Export artifacts are illustrative and workspace apply stays blocked until you run a live repository scan.',
+      severity: 'low',
+      applyReady: false,
+      exportReady: Boolean(verification?.exportReady),
+    }
+  }
+
+  if (!verification) {
+    return {
+      label: 'Decision',
+      title: 'Verification required before apply or export',
+      message: 'Run Verify Patch first so the app can record syntax, diff replay, and semantic sanity checks for this artifact.',
+      severity: 'medium',
+      applyReady: false,
+      exportReady: false,
+    }
+  }
+
+  const firstFailedCheck = verification.checks.find((check) => check.state === 'failed')
+  const firstWarningCheck = verification.checks.find((check) => check.state === 'warning')
+  const blocker = firstFailedCheck ?? firstWarningCheck ?? null
+
+  if (verification.applyReady && verification.exportReady) {
+    return {
+      label: 'Decision',
+      title: 'Patch is ready for export and workspace apply',
+      message: blocker ? `${blocker.label}: ${blocker.message}` : 'Verification passed. Keep the receipt and diff with the patch artifact.',
+      severity: 'low',
+      applyReady: true,
+      exportReady: true,
+    }
+  }
+
+  if (verification.exportReady && !verification.applyReady) {
+    if (patchJob.patchMode === 'partial') {
+      return {
+        label: 'Safe Partial Patch',
+        title: 'Conservative review artifact, not a complete ROCm fix',
+        message:
+          'This diff only covers the selected evidence file and is meant for review/export, not full migration proof.',
+        severity: 'medium',
+        applyReady: false,
+        exportReady: true,
+      }
+    }
+    return {
+      label: 'Decision',
+      title: 'Export allowed, apply blocked',
+      message:
+        blocker?.message ??
+        applyBlockReason ??
+        'Verification allows artifact export, but this patch still needs more review before a workspace write.',
+      severity: 'medium',
+      applyReady: false,
+      exportReady: true,
+    }
+  }
+
+  return {
+    label: 'Decision',
+    title: 'Review blocked until the failing check is resolved',
+    message:
+      blocker?.message ??
+      exportBlockReason ??
+      applyBlockReason ??
+      'Verification marked this patch as not ready for export or workspace apply.',
+    severity: verification.state === 'failed' ? 'high' : 'medium',
+    applyReady: Boolean(verification.applyReady),
+    exportReady: Boolean(verification.exportReady),
+  }
+}
+
+function buildOllamaFacts(status) {
+  if (!status) {
+    return []
+  }
+
+  const preferred = status.preferredModel ?? {}
+  const runningModel = status.runningModels?.[0] ?? null
+  const resolvedModel =
+    preferred.requestedName && preferred.resolvedName && preferred.requestedName !== preferred.resolvedName
+      ? `${preferred.requestedName} -> ${preferred.resolvedName}`
+      : preferred.resolvedName ?? preferred.requestedName ?? 'n/a'
+
+  return [
+    { label: 'Last checked', value: formatTimestamp(status.checkedAt) },
+    { label: 'Model route', value: resolvedModel },
+    { label: 'Warm models', value: `${status.loadedModelCount ?? 0}/${status.modelCount ?? 0}` },
+    { label: 'Response time', value: status.responseTimeMs ? `${status.responseTimeMs} ms` : 'n/a' },
+    { label: 'Running', value: runningModel?.name ?? 'none' },
+    { label: 'Processor', value: runningModel?.processor ?? 'n/a' },
+  ]
+}
+
 function formatTimestamp(value) {
   if (!value) {
     return 'n/a'
@@ -1491,11 +1888,21 @@ function formatTimestamp(value) {
   return new Date(value).toLocaleString()
 }
 
-function verificationSeverity(state) {
-  if (state === 'failed') {
+function verificationLabel(verification) {
+  if (verification.exportReady && !verification.applyReady) {
+    return 'apply gate blocked'
+  }
+  return `verification ${verification.state}`
+}
+
+function verificationSeverity(verification) {
+  if (verification.exportReady && !verification.applyReady) {
+    return 'medium'
+  }
+  if (verification.state === 'failed') {
     return 'high'
   }
-  if (state === 'warning') {
+  if (verification.state === 'warning') {
     return 'medium'
   }
   return 'low'

@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "name": "extension-cpp",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp/setup.py",
+      "note": "Focused quality check for conservative single-file build-system artifacts."
+    },
+    {
+      "name": "extension-cpp-stable",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp_stable/setup.py",
+      "note": "Checks whether the stable ABI setup.py path receives the same conservative ROCm CUDA_HOME guard."
+    },
+    {
+      "name": "flash-attention",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "evidencePath": "csrc/fused_dense_lib/setup.py",
+      "note": "Advanced packaging case that should prefer exportable partial patches over invented ROCm rewrites."
+    },
+    {
+      "name": "flash-attention-layer-norm",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "evidencePath": "csrc/layer_norm/setup.py",
+      "note": "Checks whether the layer_norm setup.py nvcc probe path receives the conservative ROCm and missing-CUDA guard."
+    }
+  ]
+}

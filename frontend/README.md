@@ -6,7 +6,7 @@ React + Vite interface for ROCmPorter Agent.
 
 ```powershell
 npm install
-npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev -- --host 127.0.0.1 --port 5178
 ```
 
 Use `VITE_API_BASE_URL` when the API is not being reached through the local Vite proxy.

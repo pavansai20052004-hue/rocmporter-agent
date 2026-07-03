@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "name": "extension-cpp-build",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp/setup.py",
+      "note": "Fast PyTorch extension build path for the core scan-patch-export-review proof."
+    },
+    {
+      "name": "extension-cpp-stable-abi",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp_stable/setup.py",
+      "note": "Stable ABI setup.py path for the conservative ROCm guard proof."
+    },
+    {
+      "name": "cuda-samples-cmake",
+      "repoUrl": "https://github.com/NVIDIA/cuda-samples",
+      "findingId": "cuda_build_config",
+      "evidencePath": "CMakeLists.txt",
+      "note": "Top-level CUDA CMake path for review-only export behavior on a larger CUDA project."
+    }
+  ]
+}

@@ -37,14 +37,25 @@ DEFAULT_MODEL = DEFAULT_OLLAMA_MODEL
 MAX_FILE_CHARS = 18_000
 PATCH_TIMEOUT_SECONDS = OLLAMA_REQUEST_TIMEOUT_SECONDS
 REPAIR_MODEL_SUFFIX = "+repair"
+PATCH_DECISION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "patchMode": {
+            "type": "string",
+            "enum": ["full", "partial", "unsafe"],
+        },
+        "rationale": {"type": "string"},
+        "strategyHint": {"type": "string"},
+    },
+    "required": ["patchMode", "rationale", "strategyHint"],
+}
 PATCH_SCHEMA = {
     "type": "object",
     "properties": {
         "rationale": {"type": "string"},
         "patchedContent": {"type": "string"},
-        "needsMoreContext": {"type": "boolean"},
     },
-    "required": ["rationale", "patchedContent", "needsMoreContext"],
+    "required": ["rationale", "patchedContent"],
 }
 
 
@@ -62,6 +73,7 @@ class PatchRecord:
     error: str | None = None
     rationale: str | None = None
     diff: str | None = None
+    patch_mode: str = "full"
     saved_patch_path: str | None = None
     saved_patched_file_path: str | None = None
     review_required: bool = True
@@ -87,6 +99,7 @@ class PatchRecord:
             error=self.error,
             rationale=self.rationale,
             diff=self.diff,
+            patchMode=self.patch_mode,
             savedPatchPath=self.saved_patch_path,
             savedPatchedFilePath=self.saved_patched_file_path,
             reviewRequired=self.review_required,
@@ -181,7 +194,14 @@ class PatchService:
         if not diff.strip():
             raise ValueError("Repair removed all meaningful file changes.")
 
-        warnings = _build_patch_warnings(validation, evidence, metrics, source_text, cleanup.cleaned_text)
+        warnings = _build_patch_warnings(
+            validation,
+            evidence,
+            metrics,
+            source_text,
+            cleanup.cleaned_text,
+            patch_mode=original.patchMode,
+        )
         warnings = [
             warning
             for warning in warnings
@@ -225,6 +245,7 @@ class PatchService:
             updated_at=now,
             rationale=_repair_rationale(original, cleanup.removed_lines),
             diff=diff,
+            patch_mode=original.patchMode,
             saved_patch_path=str(patch_path),
             saved_patched_file_path=str(repaired_file_path),
             review_required=True,
@@ -326,6 +347,8 @@ class PatchService:
         checks.append(_verification_check("warning_scan", "Warning Scan", warning_state, warning_message))
 
         checks.append(_source_drift_check(scan_id, patch))
+        checks.append(_patch_scope_check(patch))
+        checks.append(_semantic_sanity_check(patch, patched_text))
         checks.append(_diff_portability_check(patch))
         checks.append(_diff_reconstruction_check(scan_id, patch, patched_text))
 
@@ -337,6 +360,8 @@ class PatchService:
                 "syntax_validation",
                 "artifact_scan",
                 "source_drift",
+                "patch_scope",
+                "semantic_sanity",
                 "warning_scan",
                 "diff_reconstruction",
             },
@@ -345,8 +370,8 @@ class PatchService:
             _verification_check(
                 "apply_precheck",
                 "Apply Precheck",
-                "passed" if apply_ready else "failed",
-                "Patch meets non-writing apply preconditions." if apply_ready else "Patch is not ready to apply without review or regeneration.",
+                _apply_precheck_state(patch, apply_ready),
+                _apply_precheck_message(patch, apply_ready),
             )
         )
 
@@ -359,10 +384,12 @@ class PatchService:
                 "syntax_validation",
                 "artifact_scan",
                 "source_drift",
+                "semantic_sanity",
                 "warning_scan",
                 "diff_portability",
                 "diff_reconstruction",
             },
+            allow_warning_codes={"syntax_validation"},
         )
         checks.append(
             _verification_check(
@@ -477,31 +504,82 @@ class PatchService:
                 raise RuntimeError("The selected evidence file is missing from the cloned repository context.")
 
             file_text = target_file.read_text(encoding="utf-8", errors="ignore")
+            partial_fallback: tuple[str, str] | None = None
+            patch_mode = "full"
+            triage_rationale = ""
+            strategy_hint = ""
             if len(file_text) > MAX_FILE_CHARS:
-                raise RuntimeError("The selected file is too large for reliable local patch generation right now.")
+                partial_fallback = _build_conservative_partial_patch(finding, evidence, file_text)
+                if partial_fallback is None:
+                    raise RuntimeError("The selected file is too large for reliable local patch generation right now.")
+                patch_mode = "partial"
+                triage_rationale = "The file is too large for safe full-file prompting, so ROCmPorter will emit a deterministic conservative partial artifact instead."
+            else:
+                decision_prompt = _build_patch_scope_prompt(finding, evidence, file_text)
+                self._update(record, status="running", stage="triaging")
+                decision = generate_structured(
+                    record.model,
+                    decision_prompt,
+                    PATCH_DECISION_SCHEMA,
+                    system=(
+                        "You are an AMD ROCm migration engineer. Decide whether a safe single-file patch is realistic for the target file. "
+                        "Return strict JSON only."
+                    ),
+                    options={
+                        "temperature": 0.1,
+                        "num_predict": 220,
+                    },
+                )
 
-            prompt = _build_patch_prompt(finding, evidence, file_text)
-            self._update(record, status="running", stage="generating")
-            payload = generate_structured(
-                record.model,
-                prompt,
-                PATCH_SCHEMA,
-                system=(
-                    "You are an AMD ROCm migration engineer. Modify exactly one file, keep changes minimal, "
-                    "and return strict JSON only."
-                ),
-                options={
-                    "temperature": 0.1,
-                    "num_predict": 1800,
-                },
-            )
+                patch_mode = _normalize_patch_mode(decision.get("patchMode"))
+                triage_rationale = str(decision.get("rationale") or "").strip()
+                strategy_hint = str(decision.get("strategyHint") or "").strip()
+                deterministic_fallback = _build_conservative_partial_patch(finding, evidence, file_text)
+                if deterministic_fallback is not None:
+                    patch_mode = "partial"
+                    partial_fallback = deterministic_fallback
+                    triage_rationale = (
+                        f"{triage_rationale} ROCmPorter recognized a deterministic conservative partial patch pattern."
+                    ).strip()
+                elif patch_mode == "unsafe":
+                    raise RuntimeError(
+                        triage_rationale
+                        or "The model reported that this fix needs more context than a single-file patch can safely provide."
+                    )
+                else:
+                    partial_fallback = None
 
-            if payload.get("needsMoreContext"):
-                raise RuntimeError("The model reported that this fix needs more context than a single-file patch can safely provide.")
+            if partial_fallback is not None:
+                self._update(record, status="running", stage="generating")
+                patched_content, patch_rationale = partial_fallback
+            else:
+                prompt = _build_patch_prompt(
+                    finding,
+                    evidence,
+                    file_text,
+                    patch_mode=patch_mode,
+                    strategy_hint=strategy_hint,
+                    triage_rationale=triage_rationale,
+                )
+                self._update(record, status="running", stage="generating")
+                payload = generate_structured(
+                    record.model,
+                    prompt,
+                    PATCH_SCHEMA,
+                    system=(
+                        "You are an AMD ROCm migration engineer. Modify exactly one file, keep changes minimal, "
+                        "and return strict JSON only. Do not include control fields or prompt instructions in patchedContent."
+                    ),
+                    options={
+                        "temperature": 0.1,
+                        "num_predict": 1800,
+                    },
+                )
 
-            patched_content = payload.get("patchedContent", "")
-            if not patched_content.strip():
-                raise RuntimeError("The local model returned empty patched content.")
+                patched_content = payload.get("patchedContent", "")
+                patch_rationale = payload.get("rationale", "").strip()
+                if not patched_content.strip():
+                    raise RuntimeError("The local model returned empty patched content.")
 
             self._update(record, status="running", stage="validating")
             validation = _validate_patched_content(patched_content, evidence.path)
@@ -517,7 +595,14 @@ class PatchService:
             patched_file_path.parent.mkdir(parents=True, exist_ok=True)
             patched_file_path.write_text(patched_content, encoding="utf-8")
             source_file_path = _write_source_snapshot(record.patch_id, evidence.path, file_text)
-            warnings = _build_patch_warnings(validation, evidence, metrics, file_text, patched_content)
+            warnings = _build_patch_warnings(
+                validation,
+                evidence,
+                metrics,
+                file_text,
+                patched_content,
+                patch_mode=patch_mode,
+            )
             risk_assessment = _assess_patch_risk(
                 finding,
                 evidence,
@@ -532,8 +617,9 @@ class PatchService:
                 record,
                 status="completed",
                 stage="completed",
-                rationale=payload.get("rationale", "").strip(),
+                rationale=patch_rationale,
                 diff=diff,
+                patch_mode=patch_mode,
                 saved_patch_path=str(patch_path),
                 saved_patched_file_path=str(patched_file_path),
                 warnings=warnings,
@@ -556,6 +642,7 @@ class PatchService:
         error: str | None = None,
         rationale: str | None = None,
         diff: str | None = None,
+        patch_mode: str | None = None,
         saved_patch_path: str | None = None,
         saved_patched_file_path: str | None = None,
         warnings: list[PatchWarning] | None = None,
@@ -578,6 +665,8 @@ class PatchService:
                 record.rationale = rationale
             if diff is not None:
                 record.diff = diff
+            if patch_mode is not None:
+                record.patch_mode = patch_mode
             if saved_patch_path is not None:
                 record.saved_patch_path = saved_patch_path
             if saved_patched_file_path is not None:
@@ -625,6 +714,7 @@ class PatchService:
                 error=error,
                 rationale=result.rationale,
                 diff=result.diff,
+                patch_mode=result.patchMode,
                 saved_patch_path=result.savedPatchPath,
                 saved_patched_file_path=result.savedPatchedFilePath,
                 review_required=result.reviewRequired,
@@ -679,6 +769,7 @@ class PatchService:
             error=result.error,
             rationale=result.rationale,
             diff=result.diff,
+            patch_mode=result.patchMode,
             saved_patch_path=result.savedPatchPath,
             saved_patched_file_path=result.savedPatchedFilePath,
             review_required=result.reviewRequired,
@@ -756,7 +847,165 @@ class PatchService:
         )
 
 
-def _build_patch_prompt(finding: Finding, evidence: EvidenceItem, file_text: str) -> str:
+def _build_patch_scope_prompt(finding: Finding, evidence: EvidenceItem, file_text: str) -> str:
+    snippet = evidence.snippet or "No focused snippet was captured."
+    line_info = "unknown lines"
+    if evidence.lineStart is not None:
+        line_info = (
+            f"lines {evidence.lineStart}-{evidence.lineEnd}"
+            if evidence.lineEnd is not None
+            else f"line {evidence.lineStart}"
+        )
+
+    return f"""
+Decide whether this ROCm migration can be handled safely as a single-file patch.
+
+Target file: {evidence.path}
+Finding id: {finding.id}
+Finding title: {finding.title}
+Severity: {finding.severity}
+Recommendation: {finding.recommendation}
+Evidence location: {line_info}
+Matched text: {evidence.matchText or "n/a"}
+
+Relevant snippet:
+{snippet}
+
+Current file content:
+{file_text}
+
+Rules:
+- Return `patchMode="full"` only if a minimal edit to this file alone is a realistic ROCm migration step.
+- Return `patchMode="partial"` if this file can still receive a conservative review artifact, but a complete ROCm migration clearly needs more files, broader build-system work, or runtime validation.
+- Return `patchMode="unsafe"` if even a conservative single-file patch would be misleading or likely harmful.
+- Keep `strategyHint` short and implementation-oriented.
+""".strip()
+
+
+def _build_conservative_partial_patch(
+    finding: Finding,
+    evidence: EvidenceItem,
+    file_text: str,
+) -> tuple[str, str] | None:
+    evidence_path = Path(evidence.path)
+    if finding.id != "cuda_build_config":
+        return None
+    if evidence_path.suffix.lower() != ".py" and evidence_path.name.lower() != "cmakelists.txt":
+        return None
+
+    rocm_guard_patch = _apply_rocm_pytorch_build_guard(file_text)
+    if rocm_guard_patch is not None:
+        return (
+            rocm_guard_patch,
+            "Conservative partial patch: preserve the existing CUDAExtension flow and relax the CUDA_HOME gate for ROCm-built PyTorch environments.",
+        )
+
+    nvcc_probe_patch = _apply_rocm_nvcc_probe_guard(file_text)
+    if nvcc_probe_patch is not None:
+        return (
+            nvcc_probe_patch,
+            "Conservative partial patch: preserve the CUDAExtension build path while making the nvcc probe tolerant of ROCm and missing CUDA toolchains.",
+        )
+
+    nvcc_threads_patch = _apply_rocm_nvcc_threads_guard(file_text)
+    if nvcc_threads_patch is not None:
+        return (
+            nvcc_threads_patch,
+            "Conservative partial patch: preserve the existing ROCm branch and skip NVCC-only thread flags when the build is already on ROCm.",
+        )
+
+    cmake_review_patch = _apply_cmake_rocm_review_option(file_text)
+    if cmake_review_patch is not None:
+        return (
+            cmake_review_patch,
+            "Conservative partial patch: mark the top-level CMake entrypoint for ROCm migration review without pretending a full HIP build path already exists.",
+        )
+
+    return None
+
+
+def _apply_rocm_pytorch_build_guard(file_text: str) -> str | None:
+    needle = '    use_cuda = use_cuda and torch.cuda.is_available() and CUDA_HOME is not None\n'
+    if needle not in file_text or 'getattr(torch.version, "hip", None)' in file_text:
+        return None
+
+    replacement = (
+        '    is_rocm_pytorch = getattr(torch.version, "hip", None) is not None\n'
+        '    use_cuda = use_cuda and torch.cuda.is_available() and (CUDA_HOME is not None or is_rocm_pytorch)\n'
+    )
+    return file_text.replace(needle, replacement, 1)
+
+
+def _apply_rocm_nvcc_probe_guard(file_text: str) -> str | None:
+    needle = """def append_nvcc_threads(nvcc_extra_args):
+    _, bare_metal_version = get_cuda_bare_metal_version(CUDA_HOME)
+    if bare_metal_version >= Version("11.2"):
+        nvcc_threads = os.getenv("NVCC_THREADS") or "4"
+        return nvcc_extra_args + ["--threads", nvcc_threads]
+    return nvcc_extra_args
+"""
+    if needle not in file_text or 'getattr(torch.version, "hip", None)' in file_text:
+        return None
+
+    replacement = """def append_nvcc_threads(nvcc_extra_args):
+    if getattr(torch.version, "hip", None) is not None or CUDA_HOME is None:
+        return nvcc_extra_args
+    try:
+        _, bare_metal_version = get_cuda_bare_metal_version(CUDA_HOME)
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return nvcc_extra_args
+    if bare_metal_version >= Version("11.2"):
+        nvcc_threads = os.getenv("NVCC_THREADS") or "4"
+        return nvcc_extra_args + ["--threads", nvcc_threads]
+    return nvcc_extra_args
+"""
+    return file_text.replace(needle, replacement, 1)
+
+
+def _apply_rocm_nvcc_threads_guard(file_text: str) -> str | None:
+    needle = """def append_nvcc_threads(nvcc_extra_args):
+    return nvcc_extra_args + ["--threads", NVCC_THREADS]
+"""
+    if needle not in file_text:
+        return None
+
+    replacement = """def append_nvcc_threads(nvcc_extra_args):
+    if IS_ROCM:
+        return nvcc_extra_args
+    return nvcc_extra_args + ["--threads", NVCC_THREADS]
+"""
+    return file_text.replace(needle, replacement, 1)
+
+
+def _apply_cmake_rocm_review_option(file_text: str) -> str | None:
+    needle = """project(cuda-samples LANGUAGES C CXX CUDA)
+
+find_package(CUDAToolkit REQUIRED)
+"""
+    if needle not in file_text or "ENABLE_ROCM_REVIEW" in file_text:
+        return None
+
+    replacement = """project(cuda-samples LANGUAGES C CXX CUDA)
+
+option(ENABLE_ROCM_REVIEW "Enable ROCm migration review markers without changing the active CUDA build path." OFF)
+if(ENABLE_ROCM_REVIEW)
+    message(WARNING "ROCm review mode is informational only. This project still needs a real HIP build path before it can target AMD GPUs.")
+endif()
+
+find_package(CUDAToolkit REQUIRED)
+"""
+    return file_text.replace(needle, replacement, 1)
+
+
+def _build_patch_prompt(
+    finding: Finding,
+    evidence: EvidenceItem,
+    file_text: str,
+    *,
+    patch_mode: str = "full",
+    strategy_hint: str = "",
+    triage_rationale: str = "",
+) -> str:
     snippet = evidence.snippet or "No focused snippet was captured."
     line_info = "unknown lines"
     if evidence.lineStart is not None:
@@ -783,11 +1032,25 @@ Relevant snippet:
 Current file content:
 {file_text}
 
+Triage rationale:
+{triage_rationale or "A safe single-file patch is considered feasible."}
+
+Patch mode:
+{patch_mode}
+
+Strategy hint:
+{strategy_hint or "Keep the patch narrow and preserve the existing build path where possible."}
+
 Rules:
 - Modify only {evidence.path}
 - Return the full revised content of {evidence.path}
 - Keep changes minimal and practical
-- If a safe fix requires touching other files, set needsMoreContext=true
+- If patch mode is `partial`, produce a conservative review artifact rather than pretending the migration is complete.
+- For PyTorch extension builds, do not invent torch.utils.cpp_extension APIs such as ROCmExtension or HIPExtension.
+- Prefer conservative ROCm-aware guards, comments, or environment switches over renaming source directories that are not present in this file.
+- Preserve the existing CUDA build path unless you add an equivalent ROCm/HIP path in the same file.
+- Do not remove .cu sources, CUDAExtension, py_limited_api, or wheel options just to make syntax validation pass.
+- If the migration needs broader build-system, source rename, or runtime work than this file can safely express, leave the code conservative instead of inventing APIs or deleting behavior.
 """.strip()
 
 
@@ -798,7 +1061,10 @@ def _build_unified_diff(original_text: str, patched_text: str, evidence_path: st
         fromfile=evidence_path,
         tofile=evidence_path,
     )
-    return "".join(diff)
+    rendered = "".join(diff)
+    if rendered and not rendered.endswith("\n"):
+        rendered += "\n"
+    return rendered
 
 
 def _read_patch_source_text(scan_id: str, patch: PatchResult) -> str:
@@ -952,7 +1218,7 @@ def _diff_reconstruction_check(scan_id: str, patch: PatchResult, patched_text: s
             )
 
         reconstructed_text = target_file.read_text(encoding="utf-8", errors="ignore")
-        if reconstructed_text == patched_text:
+        if _texts_match_for_replay(reconstructed_text, patched_text):
             return _verification_check(
                 "diff_reconstruction",
                 "Diff Reconstruction",
@@ -967,13 +1233,105 @@ def _diff_reconstruction_check(scan_id: str, patch: PatchResult, patched_text: s
         )
 
 
+def _semantic_sanity_check(patch: PatchResult, patched_text: str) -> PatchVerificationCheck:
+    try:
+        original_text = _read_patch_source_text(patch.scanId, patch)
+    except ValueError:
+        original_text = ""
+
+    warnings = _rocm_semantic_warnings(
+        EvidenceItem(path=patch.evidencePath),
+        original_text,
+        patched_text,
+    )
+    blocking = [warning for warning in warnings if warning.severity in {"critical", "high"}]
+    if blocking:
+        details = "; ".join(warning.message for warning in blocking[:2])
+        return _verification_check(
+            "semantic_sanity",
+            "ROCm Semantic Sanity",
+            "failed",
+            f"Patch has ROCm migration sanity issue(s): {details}",
+        )
+
+    if patch.riskAssessment and patch.riskAssessment.level == "high":
+        return _verification_check(
+            "semantic_sanity",
+            "ROCm Semantic Sanity",
+            "warning",
+            "Patch risk is high. Keep this as a review artifact and regenerate or validate on ROCm before applying.",
+        )
+
+    return _verification_check(
+        "semantic_sanity",
+        "ROCm Semantic Sanity",
+        "passed",
+        "No obvious invented ROCm APIs or unsafe single-file migration assumptions were detected.",
+    )
+
+
+def _patch_scope_check(patch: PatchResult) -> PatchVerificationCheck:
+    if patch.patchMode == "partial":
+        return _verification_check(
+            "patch_scope",
+            "Patch Scope",
+            "warning",
+            "Safe partial patch: conservative review artifact, not a complete ROCm fix.",
+        )
+    return _verification_check(
+        "patch_scope",
+        "Patch Scope",
+        "passed",
+        "Patch is scoped as a full single-file artifact.",
+    )
+
+
 def _first_stderr_line(result: subprocess.CompletedProcess[str]) -> str | None:
     return next((line.strip() for line in result.stderr.splitlines() if line.strip()), None)
 
 
-def _all_checks_ok(checks: list[PatchVerificationCheck], required: set[str]) -> bool:
+def _texts_match_for_replay(reconstructed_text: str, patched_text: str) -> bool:
+    if reconstructed_text == patched_text:
+        return True
+    return reconstructed_text.rstrip("\r\n") == patched_text.rstrip("\r\n")
+
+
+def _all_checks_ok(
+    checks: list[PatchVerificationCheck],
+    required: set[str],
+    *,
+    allow_warning_codes: set[str] | None = None,
+) -> bool:
     states = {check.code: check.state for check in checks}
-    return all(states.get(code) == "passed" for code in required)
+    allow_warning_codes = allow_warning_codes or set()
+    return all(
+        states.get(code) == "passed" or (code in allow_warning_codes and states.get(code) == "warning")
+        for code in required
+    )
+
+
+def _normalize_patch_mode(value: object) -> str:
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"full", "partial", "unsafe"}:
+            return normalized
+    return "unsafe"
+
+
+def _apply_precheck_state(patch: PatchResult, apply_ready: bool) -> str:
+    if apply_ready:
+        return "passed"
+    if patch.patchMode == "partial":
+        return "warning"
+    return "failed"
+
+
+def _apply_precheck_message(patch: PatchResult, apply_ready: bool) -> str:
+    if apply_ready:
+        return "Patch meets non-writing apply preconditions."
+    if patch.patchMode == "partial":
+        return "Workspace apply is blocked by design because this is a conservative partial review artifact."
+    return "Patch is not ready to apply without review or regeneration."
 
 
 def _receipt_state(checks: list[PatchVerificationCheck]) -> str:
@@ -994,6 +1352,8 @@ def _verification_summary(
     warnings = sum(1 for check in checks if check.state == "warning")
     if state == "passed":
         return "Verification passed. Patch is ready for workspace apply and portable export review."
+    if export_ready and not apply_ready:
+        return f"Verification completed with {warnings} warning(s). Export-ready review artifact; workspace apply is blocked by design."
     if failed:
         return f"Verification failed with {failed} failed check(s) and {warnings} warning(s). Apply ready: {apply_ready}. Export ready: {export_ready}."
     return f"Verification completed with {warnings} warning(s). Apply ready: {apply_ready}. Export ready: {export_ready}."
@@ -1065,8 +1425,22 @@ def _build_patch_warnings(
     metrics: DiffMetrics,
     original_text: str,
     patched_text: str,
+    *,
+    patch_mode: str = "full",
 ) -> list[PatchWarning]:
     warnings: list[PatchWarning] = []
+
+    if patch_mode == "partial":
+        warnings.append(
+            PatchWarning(
+                code="partial_patch_scope",
+                severity="medium",
+                message=(
+                    "This is a conservative single-file review artifact, not a complete ROCm migration. "
+                    "Export it for review, but finish the broader migration before applying it to a live workspace."
+                ),
+            )
+        )
 
     if validation.state == "failed":
         warnings.append(
@@ -1115,8 +1489,12 @@ def _build_patch_warnings(
             warnings.append(
                 PatchWarning(
                     code="change_outside_evidence_window",
-                    severity="high",
-                    message="The patch edits lines well outside the evidence window that triggered this finding.",
+                    severity="medium" if patch_mode == "partial" else "high",
+                    message=(
+                        "The patch edits lines outside the evidence window that triggered this finding."
+                        if patch_mode == "partial"
+                        else "The patch edits lines well outside the evidence window that triggered this finding."
+                    ),
                 )
             )
 
@@ -1130,6 +1508,8 @@ def _build_patch_warnings(
                 message=f"The generated file appears to contain model control text ({leaked_token}).",
             )
         )
+
+    warnings.extend(_rocm_semantic_warnings(evidence, original_text, patched_text))
 
     return warnings
 
@@ -1145,6 +1525,7 @@ def _assess_patch_risk(
 ) -> PatchRiskAssessment:
     factors: list[PatchRiskFactor] = []
     score = 8
+    partial_scope = any(warning.code == "partial_patch_scope" for warning in warnings)
 
     if validation.state == "failed":
         factors.append(
@@ -1160,18 +1541,24 @@ def _assess_patch_risk(
             PatchRiskFactor(
                 code="syntax_unsupported",
                 label="Syntax validation unavailable",
-                points=14,
+                points=10 if partial_scope else 14,
                 detail="This file type does not have a trustworthy local syntax validator in the current workspace.",
             )
         )
 
     warning_points = {
+        "partial_patch_scope": 10 if partial_scope else 18,
         "response_artifact_leak": 32,
-        "change_outside_evidence_window": 22,
-        "destructive_line_removal": 22,
+        "change_outside_evidence_window": 8 if partial_scope else 22,
+        "destructive_line_removal": 34,
         "large_single_file_edit": 14,
         "syntax_validation_failed": 30,
-        "syntax_validation_unsupported": 12,
+        "syntax_validation_unsupported": 8 if partial_scope else 12,
+        "invented_pytorch_extension_api": 36,
+        "unsupported_pytorch_compile_arg_key": 24,
+        "assumed_rocm_source_directory": 24,
+        "cuda_build_path_removed": 32,
+        "cuda_sources_removed_without_rocm_equivalent": 30,
     }
     for warning in warnings:
         points = warning_points.get(warning.code, 10)
@@ -1185,6 +1572,13 @@ def _assess_patch_risk(
         )
 
     for factor in _cuda_semantic_risk_factors(finding, evidence, original_text, patched_text):
+        if partial_scope and factor.code == "residual_cuda_build_markers":
+            factor = PatchRiskFactor(
+                code=factor.code,
+                label=factor.label,
+                points=8,
+                detail=factor.detail,
+            )
         factors.append(factor)
 
     if metrics.changed_hunks >= 4:
@@ -1252,6 +1646,43 @@ def _cuda_semantic_risk_factors(
                 16,
                 "The patch introduces HIP compiler references while CUDA extension wiring still appears in the same file.",
             )
+        if any(token in patched_text for token in ["ROCmExtension", "HIPExtension"]):
+            add_factor(
+                "invented_pytorch_extension_api",
+                "Invented PyTorch extension API",
+                36,
+                "The patch references ROCmExtension or HIPExtension, which is not a safe PyTorch cpp_extension migration target.",
+            )
+        if re.search(r"extra_compile_args\s*=\s*\{[\s\S]*[\"'](?:rocm|hipcc)[\"']\s*:", patched_text):
+            add_factor(
+                "unsupported_pytorch_compile_arg_key",
+                "Unsupported PyTorch compile argument key",
+                24,
+                "The patch uses a rocm or hipcc extra_compile_args key; PyTorch cpp_extension normally expects cxx and nvcc keys.",
+            )
+        if "cuda" in original_lowered and re.search(r"csrc[\"']?\s*,\s*[\"']rocm|[\"']rocm[\"']\)", lowered):
+            add_factor(
+                "assumed_rocm_source_directory",
+                "Assumed ROCm source directory",
+                24,
+                "The patch assumes a rocm source directory exists even though a single-file patch cannot rename or create that tree.",
+            )
+        if "cudaextension" in original_lowered and "cudaextension" not in lowered:
+            add_factor(
+                "cuda_build_path_removed",
+                "CUDA extension path removed",
+                32,
+                "The patch removes CUDAExtension instead of preserving the existing build path or adding an equivalent ROCm path.",
+            )
+        if ("cuda_sources" in original_lowered or _contains_cuda_source_reference(original_text)) and (
+            "cuda_sources" not in lowered and not _contains_cuda_source_reference(patched_text) and "hip_sources" not in lowered
+        ):
+            add_factor(
+                "cuda_sources_removed_without_rocm_equivalent",
+                "CUDA sources removed without ROCm equivalent",
+                30,
+                "The patch drops CUDA source inclusion without adding a HIP or ROCm source path in the same file.",
+            )
 
     if finding.id == "cuda_runtime_headers":
         runtime_tokens = [token for token in ["cuda_runtime.h", "cuda.h", "aten/cuda", "c10::cuda"] if token in lowered]
@@ -1291,6 +1722,91 @@ def _cuda_semantic_risk_factors(
         )
 
     return factors
+
+
+def _rocm_semantic_warnings(
+    evidence: EvidenceItem,
+    original_text: str,
+    patched_text: str,
+) -> list[PatchWarning]:
+    warnings: list[PatchWarning] = []
+    if Path(evidence.path).suffix.lower() != ".py":
+        return warnings
+
+    introduced_text = patched_text if not original_text else _introduced_text(original_text, patched_text)
+    if "torch.utils.cpp_extension" in patched_text and any(
+        token in introduced_text for token in ["ROCmExtension", "HIPExtension"]
+    ):
+        warnings.append(
+            PatchWarning(
+                code="invented_pytorch_extension_api",
+                severity="high",
+                message=(
+                    "Patch references ROCmExtension or HIPExtension from torch.utils.cpp_extension. "
+                    "PyTorch ROCm extension builds should be reviewed carefully instead of inventing a new extension class."
+                ),
+            )
+        )
+
+    if re.search(r"extra_compile_args\s*=\s*\{[\s\S]*[\"'](?:rocm|hipcc)[\"']\s*:", patched_text):
+        warnings.append(
+            PatchWarning(
+                code="unsupported_pytorch_compile_arg_key",
+                severity="high",
+                message=(
+                    "Patch uses a rocm or hipcc key inside extra_compile_args. "
+                    "PyTorch cpp_extension commonly routes ROCm through CUDAExtension and nvcc-style argument keys."
+                ),
+            )
+        )
+
+    original_lowered = original_text.lower()
+    patched_lowered = patched_text.lower()
+    if "cuda" in original_lowered and re.search(r"csrc[\"']?\s*,\s*[\"']rocm|[\"']rocm[\"']\)", patched_lowered):
+        warnings.append(
+            PatchWarning(
+                code="assumed_rocm_source_directory",
+                severity="high",
+                message=(
+                    "Patch assumes a rocm source directory exists. A single-file patch cannot safely rename or create source trees."
+                ),
+            )
+        )
+
+    if "cudaextension" in original_lowered and "cudaextension" not in patched_lowered:
+        warnings.append(
+            PatchWarning(
+                code="cuda_build_path_removed",
+                severity="high",
+                message=(
+                    "Patch removes CUDAExtension instead of preserving the existing path or adding an equivalent ROCm path."
+                ),
+            )
+        )
+
+    if ("cuda_sources" in original_lowered or _contains_cuda_source_reference(original_text)) and (
+        "cuda_sources" not in patched_lowered
+        and not _contains_cuda_source_reference(patched_text)
+        and "hip_sources" not in patched_lowered
+    ):
+        warnings.append(
+            PatchWarning(
+                code="cuda_sources_removed_without_rocm_equivalent",
+                severity="high",
+                message="Patch drops CUDA source inclusion without adding a HIP or ROCm source path in the same file.",
+            )
+        )
+
+    return warnings
+
+
+def _contains_cuda_source_reference(text: str) -> bool:
+    return bool(re.search(r"['\"][^'\"]*(?:\*|/|\\)?\.cu(?:h)?['\"]", text, re.IGNORECASE))
+
+
+def _introduced_text(original_text: str, patched_text: str) -> str:
+    original_lines = set(original_text.splitlines())
+    return "\n".join(line for line in patched_text.splitlines() if line not in original_lines)
 
 
 def _build_review_checklist(

@@ -14,6 +14,7 @@ ValidationState = Literal["passed", "failed", "unsupported"]
 VerificationState = Literal["passed", "warning", "failed"]
 RiskLevel = Literal["low", "medium", "high"]
 ExportFormat = Literal["json", "markdown", "diff", "html", "zip", "github"]
+PatchMode = Literal["full", "partial"]
 
 
 class ScanRequest(BaseModel):
@@ -143,6 +144,7 @@ class PatchRiskAssessment(BaseModel):
 class PatchResult(PatchStatus):
     rationale: str | None = None
     diff: str | None = None
+    patchMode: PatchMode = "full"
     savedPatchPath: str | None = None
     savedPatchedFilePath: str | None = None
     reviewRequired: bool = True
@@ -270,6 +272,11 @@ class GitHubReviewResult(BaseModel):
     repository: str
     pullRequestNumber: int | None = None
     createdAt: datetime
+    verificationState: str | None = None
+    applyReady: bool = False
+    exportReady: bool = False
+    reviewReady: bool = False
+    draftOnly: bool = True
     riskScore: int = Field(ge=0, le=100)
     riskLevel: RiskLevel
     summary: str

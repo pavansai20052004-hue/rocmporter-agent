@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .apply_service import apply_service
+from .benchmark_service import benchmark_service
 from .export_service import export_service
 from .github_review_service import github_review_service
 from .models import (
@@ -84,6 +85,13 @@ def main() -> None:
     models_parser = subparsers.add_parser("models", help="List local Ollama models")
     models_parser.add_argument("--json", action="store_true")
 
+    benchmark_parser = subparsers.add_parser("benchmark", help="Run repeatable patch-quality benchmark cases")
+    benchmark_parser.add_argument("--cases", required=True)
+    benchmark_parser.add_argument("--model", default=DEFAULT_MODEL)
+    benchmark_parser.add_argument("--export", default=DEFAULT_EXPORTS)
+    benchmark_parser.add_argument("--out", default=None)
+    benchmark_parser.add_argument("--json", action="store_true")
+
     args = parser.parse_args()
 
     if args.command == "scan":
@@ -106,38 +114,38 @@ def main() -> None:
         if args.finding_id and args.evidence_path:
             patch_result = patch_service.run_patch_blocking(status.scanId, args.finding_id, args.evidence_path, args.model)
 
-        export_result = export_service.create_export(
+        export_result, export_error = _try_create_export(
             status.scanId,
             patch_id=patch_result.patchId if patch_result else None,
             formats=export_targets,
             output_dir=artifact_dir,
         )
 
-        _print_run_result(status, report, patch_result, export_result, args.json, artifact_dir)
+        _print_run_result(status, report, patch_result, export_result, export_error, args.json, artifact_dir)
         return
 
     if args.command == "patch":
         result = patch_service.run_patch_blocking(args.scan_id, args.finding_id, args.evidence_path, args.model)
         artifact_dir = _artifact_dir(args.out, args.scan_id)
-        export_result = export_service.create_export(
+        export_result, export_error = _try_create_export(
             args.scan_id,
             patch_id=result.patchId,
             formats=_parse_export_formats(args.export),
             output_dir=artifact_dir,
         )
-        _print_patch_result(result, export_result, args.json, artifact_dir)
+        _print_patch_result(result, export_result, export_error, args.json, artifact_dir)
         return
 
     if args.command == "repair-patch":
         result = patch_service.repair_patch(args.scan_id, args.patch_id)
         artifact_dir = _artifact_dir(args.out, args.scan_id)
-        export_result = export_service.create_export(
+        export_result, export_error = _try_create_export(
             args.scan_id,
             patch_id=result.patchId,
             formats=_parse_export_formats(args.export),
             output_dir=artifact_dir,
         )
-        _print_patch_result(result, export_result, args.json, artifact_dir)
+        _print_patch_result(result, export_result, export_error, args.json, artifact_dir)
         return
 
     if args.command == "verify-patch":
@@ -175,6 +183,18 @@ def main() -> None:
         else:
             for item in models:
                 print(item.name)
+        return
+
+    if args.command == "benchmark":
+        out_dir = Path(args.out) if args.out else None
+        summary = benchmark_service.run_case_file(
+            Path(args.cases),
+            model=args.model,
+            export_formats=_parse_export_formats(args.export),
+            output_dir=out_dir,
+        )
+        _print_benchmark_result(summary, args.json)
+        return
 
 
 def _artifact_dir(out: str | None, scan_id: str) -> Path:
@@ -223,10 +243,38 @@ def _print_scan_result(
     print(f"Artifacts: {artifact_dir}")
 
 
-def _print_patch_result(result: PatchResult, export_result: ExportResult, as_json: bool, artifact_dir: Path) -> None:
+def _try_create_export(
+    scan_id: str,
+    *,
+    patch_id: str | None = None,
+    formats: list[str],
+    output_dir: Path,
+) -> tuple[ExportResult | None, str | None]:
+    try:
+        return (
+            export_service.create_export(
+                scan_id,
+                patch_id=patch_id,
+                formats=formats,
+                output_dir=output_dir,
+            ),
+            None,
+        )
+    except ValueError as exc:
+        return None, str(exc)
+
+
+def _print_patch_result(
+    result: PatchResult,
+    export_result: ExportResult | None,
+    export_error: str | None,
+    as_json: bool,
+    artifact_dir: Path,
+) -> None:
     payload = {
         "patch": result.model_dump(mode="json"),
-        "export": export_result.model_dump(mode="json"),
+        "export": export_result.model_dump(mode="json") if export_result else None,
+        "exportError": export_error,
         "artifactDir": str(artifact_dir),
     }
     if as_json:
@@ -234,6 +282,7 @@ def _print_patch_result(result: PatchResult, export_result: ExportResult, as_jso
         return
 
     print(f"Patch {result.patchId}: {result.status}")
+    print(f"Patch mode: {result.patchMode}")
     if result.savedPatchPath:
         print(f"Saved patch: {result.savedPatchPath}")
     if result.savedPatchedFilePath:
@@ -246,14 +295,18 @@ def _print_patch_result(result: PatchResult, export_result: ExportResult, as_jso
         print(f"Warnings: {len(result.warnings)}")
     if result.error:
         print(f"Error: {result.error}")
-    print(f"Bundle files: {len(export_result.files)}")
+    if export_result:
+        print(f"Bundle files: {len(export_result.files)}")
+    elif export_error:
+        print(f"Export skipped: {export_error}")
 
 
 def _print_run_result(
     status: ScanStatus,
     report: ScanReport,
     patch_result: PatchResult | None,
-    export_result: ExportResult,
+    export_result: ExportResult | None,
+    export_error: str | None,
     as_json: bool,
     artifact_dir: Path,
 ) -> None:
@@ -261,7 +314,8 @@ def _print_run_result(
         "scan": status.model_dump(mode="json"),
         "report": report.model_dump(mode="json"),
         "patch": patch_result.model_dump(mode="json") if patch_result else None,
-        "export": export_result.model_dump(mode="json"),
+        "export": export_result.model_dump(mode="json") if export_result else None,
+        "exportError": export_error,
         "artifactDir": str(artifact_dir),
     }
     if as_json:
@@ -273,6 +327,7 @@ def _print_run_result(
     print(f"Score: {report.summary.portabilityScore}")
     if patch_result:
         print(f"Patch: {patch_result.status}")
+        print(f"Patch mode: {patch_result.patchMode}")
         if patch_result.savedPatchPath:
             print(f"Patch file: {patch_result.savedPatchPath}")
         if patch_result.savedPatchedFilePath:
@@ -283,7 +338,10 @@ def _print_run_result(
             print(f"Risk: {patch_result.riskAssessment.score}/100 ({patch_result.riskAssessment.level})")
         if patch_result.warnings:
             print(f"Warnings: {len(patch_result.warnings)}")
-    print(f"Bundle files: {len(export_result.files)}")
+    if export_result:
+        print(f"Bundle files: {len(export_result.files)}")
+    elif export_error:
+        print(f"Export skipped: {export_error}")
     print(f"Artifacts: {artifact_dir}")
 
 
@@ -337,6 +395,39 @@ def _print_verification_result(result: PatchVerificationReceipt, as_json: bool) 
         print(f"Receipt: {result.savedReceiptPath}")
     for check in result.checks:
         print(f"- {check.state}: {check.label} - {check.message}")
+
+
+def _print_benchmark_result(summary: dict[str, object], as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(summary, indent=2))
+        return
+
+    totals = summary["totals"]
+    print(f"Benchmark run complete: {summary['runRoot']}")
+    print(f"Run status: {summary.get('runStatus', 'completed')}")
+    print(f"Cases: {totals['caseCount']} / {totals.get('plannedCaseCount', totals['caseCount'])}")
+    if totals.get("remainingCaseCount", 0):
+        print(f"Remaining cases: {totals['remainingCaseCount']}")
+    print(f"Completed exports: {totals['completed']}")
+    print(f"Export blocked: {totals['exportBlocked']}")
+    print(f"Apply ready: {totals['applyReady']}")
+    print(f"Export ready: {totals['exportReady']}")
+    print(f"Review-ready artifacts: {totals.get('reviewReadyCases', 0)}")
+    print(f"Infrastructure failures: {totals.get('infrastructureFailedCases', 0)}")
+    for case in summary["cases"]:
+        print(
+            f"- {case['name']}: {case['status']} | "
+            f"lane={case.get('qualityLane', 'unknown')} | "
+            f"risk={case.get('patchRiskLevel', 'n/a')} | "
+            f"applyReady={case.get('applyReady', False)} | "
+            f"exportReady={case.get('exportReady', False)}"
+        )
+        if case.get("primaryFailure"):
+            print(f"  primary failure: {case['primaryFailure']['label']} - {case['primaryFailure']['message']}")
+        if case.get("error"):
+            print(f"  error: {case['error']}")
+        elif case.get("exportError"):
+            print(f"  export: {case['exportError']}")
 
 
 if __name__ == "__main__":

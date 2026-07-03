@@ -35,7 +35,7 @@ from .service import scan_service
 load_local_env()
 app = FastAPI(title="ROCmPorter Agent API", version="0.1.0")
 
-cors_origins = os.getenv("APP_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+cors_origins = os.getenv("APP_CORS_ORIGINS", "http://localhost:5178,http://127.0.0.1:5178")
 cors_origin_regex = os.getenv(
     "APP_CORS_ALLOW_ORIGIN_REGEX",
     r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$",

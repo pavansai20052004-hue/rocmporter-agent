@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .env_config import get_github_token
-from .models import GitHubInlineComment, GitHubReviewResult, PatchResult, ScanReport
+from .models import GitHubInlineComment, GitHubReviewResult, PatchResult, PatchVerificationReceipt, ScanReport
 from .patch_service import patch_service
 from .service import WORK_ROOT, scan_service
 
@@ -48,6 +48,12 @@ class GitHubReviewService:
         patch = patch_service.get_patch(patch_id)
         if patch is None or patch.scanId != scan_id:
             raise ValueError("Patch artifact was not found for this scan.")
+        if patch.status != "completed":
+            raise ValueError("Patch must complete before GitHub review generation.")
+
+        verification = patch_service.verify_patch(scan_id, patch.patchId)
+        if not verification.exportReady:
+            raise ValueError(f"Patch verification is not export-ready: {verification.summary}")
 
         review_id = output_dir.name if output_dir is not None else f"review_{uuid.uuid4().hex[:10]}"
         root_dir = output_dir or (REVIEW_ROOT / scan_id / review_id)
@@ -64,10 +70,11 @@ class GitHubReviewService:
                 inline_comments,
             )
 
-        comment_body = render_review_comment(report, patch, repository_slug, pull_request_number, inline_comments)
+        comment_body = render_review_comment(report, patch, repository_slug, pull_request_number, inline_comments, verification)
         payload = build_review_payload(
             report,
             patch,
+            verification,
             repository_slug,
             pull_request_number,
             comment_body,
@@ -94,7 +101,9 @@ class GitHubReviewService:
         post_url = None
         post_error = None
         if post_comment:
-            if pull_request_number is None:
+            if not verification.exportReady:
+                post_error = "GitHub posting blocked because patch verification is not export-ready."
+            elif pull_request_number is None:
                 post_error = "A pull request number is required before posting a GitHub comment."
             else:
                 post_url, post_error = _post_review(repository_slug, pull_request_number, comment_body, pr_safe_inline_comments)
@@ -109,9 +118,14 @@ class GitHubReviewService:
             repository=repository_slug,
             pullRequestNumber=pull_request_number,
             createdAt=datetime.now(UTC),
+            verificationState=verification.state,
+            applyReady=verification.applyReady,
+            exportReady=verification.exportReady,
+            reviewReady=verification.exportReady,
+            draftOnly=not verification.exportReady,
             riskScore=patch.riskAssessment.score if patch.riskAssessment else 50,
             riskLevel=patch.riskAssessment.level if patch.riskAssessment else "medium",
-            summary=patch.riskAssessment.summary if patch.riskAssessment else "Manual review required before applying the patch.",
+            summary=_review_summary(patch, verification),
             warnings=payload["warnings"],
             commentBody=comment_body,
             savedMarkdownPath=str(markdown_path.resolve()),
@@ -129,6 +143,7 @@ class GitHubReviewService:
 def build_review_payload(
     report: ScanReport,
     patch: PatchResult,
+    verification: PatchVerificationReceipt | None,
     repository: str | None,
     pull_request_number: int | None,
     comment_body: str,
@@ -138,6 +153,10 @@ def build_review_payload(
 ) -> dict:
     finding = next((item for item in report.findings if item.id == patch.findingId), None)
     warnings = [item.message for item in patch.warnings]
+    if verification is not None and not verification.exportReady:
+        warnings.append("Draft-only review: patch verification is not export-ready, so GitHub posting is blocked.")
+    elif verification is not None and not verification.applyReady:
+        warnings.append("Workspace apply is blocked by verification; use this as a review/export artifact.")
     if pr_diff_warning:
         warnings.append(pr_diff_warning)
 
@@ -150,6 +169,11 @@ def build_review_payload(
         "targetFile": patch.evidencePath,
         "portabilityScore": report.summary.portabilityScore,
         "patchRisk": patch.riskAssessment.model_dump(mode="json") if patch.riskAssessment else None,
+        "verification": verification.model_dump(mode="json") if verification else None,
+        "applyReady": bool(verification.applyReady) if verification else False,
+        "exportReady": bool(verification.exportReady) if verification else False,
+        "reviewReady": bool(verification.exportReady) if verification else False,
+        "draftOnly": not bool(verification.exportReady) if verification else True,
         "warnings": warnings,
         "validation": patch.validation.model_dump(mode="json") if patch.validation else None,
         "inlineComments": [item.model_dump(mode="json") for item in inline_comments],
@@ -167,15 +191,17 @@ def render_review_comment(
     repository: str | None,
     pull_request_number: int | None,
     inline_comments: list[GitHubInlineComment] | None = None,
+    verification: PatchVerificationReceipt | None = None,
 ) -> str:
     finding = next((item for item in report.findings if item.id == patch.findingId), None)
     top_findings = report.findings[:3]
     risk = patch.riskAssessment
     diff_preview = _truncate_diff(patch.diff or "")
     comment_suggestions = inline_comments if inline_comments is not None else generate_inline_comments(report, patch)
+    draft_only = verification is not None and not verification.exportReady
 
     lines = [
-        f"## ROCmPorter Review for `{repository or report.repo.name}`",
+        f"## ROCmPorter {'Draft Review' if draft_only else 'Review'} for `{repository or report.repo.name}`",
         "",
         f"- Scan ID: `{patch.scanId}`",
         f"- PR: `{f'#{pull_request_number}' if pull_request_number else 'not specified'}`",
@@ -183,6 +209,29 @@ def render_review_comment(
         f"- Patch target: `{patch.evidencePath}`",
         f"- Patch status: `{patch.status}` via `{patch.model}`",
     ]
+
+    if verification is not None:
+        lines.extend(
+            [
+                f"- Verification state: `{verification.state}`",
+                f"- Export ready: `{verification.exportReady}`",
+                f"- Apply ready: `{verification.applyReady}`",
+            ]
+        )
+        if not verification.exportReady:
+            lines.extend(
+                [
+                    "",
+                    "> Draft only: verification is not export-ready, so this comment must not be posted to a pull request yet.",
+                ]
+            )
+        elif not verification.applyReady:
+            lines.extend(
+                [
+                    "",
+                    "> Review artifact: export is ready, but workspace apply remains blocked by verification.",
+                ]
+            )
 
     if risk is not None:
         lines.append(f"- Patch review risk: `{risk.score}/100` ({risk.level})")
@@ -257,6 +306,14 @@ def _truncate_diff(diff_text: str) -> str:
     visible = lines[:MAX_DIFF_LINES]
     visible.append("... diff truncated ...")
     return "\n".join(visible)
+
+
+def _review_summary(patch: PatchResult, verification: PatchVerificationReceipt) -> str:
+    if not verification.exportReady:
+        return f"Draft review only: {verification.summary}"
+    if not verification.applyReady:
+        return f"Export-ready review artifact; workspace apply remains blocked. {patch.riskAssessment.summary if patch.riskAssessment else verification.summary}"
+    return patch.riskAssessment.summary if patch.riskAssessment else "Patch verification passed for export and workspace apply."
 
 
 def generate_inline_comments(report: ScanReport, patch: PatchResult) -> list[GitHubInlineComment]:

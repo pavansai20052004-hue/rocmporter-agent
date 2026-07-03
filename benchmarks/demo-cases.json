@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "name": "extension-cpp",
+      "repoUrl": "https://github.com/pytorch/extension-cpp",
+      "findingId": "cuda_build_config",
+      "evidencePath": "extension_cpp/setup.py",
+      "note": "Small PyTorch extension repo used for the cleanest live demo."
+    },
+    {
+      "name": "cuda-samples",
+      "repoUrl": "https://github.com/NVIDIA/cuda-samples",
+      "findingId": "cuda_build_config",
+      "note": "Scanner and patch benchmark for a CUDA-heavy codebase."
+    },
+    {
+      "name": "cupy",
+      "repoUrl": "https://github.com/cupy/cupy",
+      "findingId": "cuda_build_config",
+      "note": "Large Python GPU library benchmark."
+    },
+    {
+      "name": "flash-attention",
+      "repoUrl": "https://github.com/Dao-AILab/flash-attention",
+      "findingId": "cuda_build_config",
+      "note": "Advanced CUDA kernel packaging benchmark."
+    }
+  ]
+}
