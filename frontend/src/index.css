@@ -399,6 +399,7 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
   padding: 14px;
+  min-width: 0;
 }
 
 .evidence-head,
@@ -408,6 +409,23 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
+}
+
+.patch-meta-grid > div {
+  min-width: 0;
+}
+
+.patch-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  align-items: stretch;
+}
+
+.patch-meta-grid strong,
+.warning-banner span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .line-meta,

@@ -1473,9 +1473,7 @@ function BenchmarkProofPanel({ proof }) {
           <p className="section-label">Benchmark Proof</p>
           <h3 id="benchmark-proof-heading">{proof.headline}</h3>
         </div>
-        <p className="status-hint">
-          Latest focused run: 4/4 complete, 4 export-ready, 0 high-risk. Apply remains blocked by design until ROCm validation.
-        </p>
+        <p className="status-hint">{proof.summary}</p>
       </div>
 
       <div className="proof-bar-metrics" aria-label={`${proof.runName} benchmark summary`}>

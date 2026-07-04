@@ -80,7 +80,8 @@ Expanded quality benchmark update on 2026-07-02:
 Submission proof update on 2026-07-03:
 
 - Case file: `benchmarks\submission-proof-cases.json`
-- Verified output: `work\benchmark-runs\submission-proof-v2\summary.json`
+- Tracked summary: `docs\benchmark-proof\submission-proof-v2-summary.md`
+- Raw local output: `work\benchmark-runs\submission-proof-v2\summary.json`
 - 3 of 3 cases completed export bundles
 - 3 of 3 cases were export-ready review artifacts
 - 0 cases were export blocked

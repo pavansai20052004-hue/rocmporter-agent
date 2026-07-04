@@ -120,7 +120,8 @@ This 3-case suite is the preferred pre-demo proof run. It keeps the runtime boun
 
 Latest verified submission proof:
 
-- Output: `work\benchmark-runs\submission-proof-v2\summary.json`
+- Tracked summary: `docs\benchmark-proof\submission-proof-v2-summary.md`
+- Raw local output: `work\benchmark-runs\submission-proof-v2\summary.json`
 - Cases: 3
 - Completed exports: 3
 - Export ready: 3

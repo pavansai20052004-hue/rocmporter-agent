@@ -27,6 +27,7 @@ ROCmPorter Agent helps developers move CUDA/NVIDIA-heavy repositories toward AMD
    ```
 
    Latest verified reference run: `work\benchmark-runs\submission-proof-v2\summary.json` completed 3 of 3 cases with 3 export-ready review artifacts, 0 infrastructure failures, and 0 high-risk patches.
+   Portable tracked proof: `docs\benchmark-proof\submission-proof-v2-summary.md`.
 
 3. Open:
 
@@ -146,6 +147,8 @@ flowchart LR
 ```
 
 ## Screenshots to capture
+
+Tracked screenshot gallery: `docs\screenshots\README.md`
 
 - First screen with `Load Sample Scan`
 - Sample report with findings

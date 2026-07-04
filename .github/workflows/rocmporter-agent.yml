@@ -1,6 +1,12 @@
 name: ROCmPorter Agent
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       repo_url:
@@ -85,6 +91,7 @@ jobs:
           npm run test:e2e -- --project=desktop
 
   validate_inputs:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       patch_enabled: ${{ steps.flags.outputs.patch_enabled }}

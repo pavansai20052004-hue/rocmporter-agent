@@ -2,6 +2,27 @@
 
 ROCmPorter Agent is a local-first hackathon product that scans a GitHub repository for CUDA and NVIDIA-specific assumptions, then produces an AMD ROCm readiness report with evidence, risk level, next steps, export bundles, review-scored patch artifacts, and GitHub PR review outputs. Current verified benchmark artifacts are export-ready review bundles, not apply-ready migrations. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true`.
 
+## Judge Quick Start
+
+1. Read the portal-ready pitch: [docs/submission-pitch.md](docs/submission-pitch.md)
+2. Review the tracked proof summary: [docs/benchmark-proof/submission-proof-v2-summary.md](docs/benchmark-proof/submission-proof-v2-summary.md)
+3. Open the screenshot gallery: [docs/screenshots/README.md](docs/screenshots/README.md)
+4. Start the local product:
+
+   ```powershell
+   .\scripts\local\start-local-dev.ps1
+   ```
+
+5. Open `http://127.0.0.1:5178` and click `Load Sample Scan` for the fastest reliable demo.
+
+## Submission Package
+
+Create portal uploads from Git, not from the whole desktop folder. The working directory can contain ignored local artifacts such as `work/`, `frontend/node_modules/`, `backend/.venv/`, and Playwright output.
+
+```powershell
+git archive --format zip HEAD -o AMD_HACKTHON-submission.zip
+```
+
 ## Stack
 
 - `frontend/`: React + Vite report UI
@@ -106,7 +127,7 @@ For judging and team rehearsals, use [docs/demo-script.md](docs/demo-script.md).
 
 For repeatable multi-repo patch benchmarking, use [benchmarks/submission-proof-cases.json](benchmarks/submission-proof-cases.json) for the fast 3-case submission proof, [benchmarks/demo-cases.json](benchmarks/demo-cases.json) for the broad smoke path, [benchmarks/quality-check-cases.json](benchmarks/quality-check-cases.json) for the focused conservative-partial benchmark, [benchmarks/selection-check-cases.json](benchmarks/selection-check-cases.json) to verify automatic evidence selection on larger repos, or [benchmarks/judge-quality-cases.json](benchmarks/judge-quality-cases.json) as the candidate pinned 6-case judge-quality patch suite.
 
-Latest verified submission proof: `work\benchmark-runs\submission-proof-v2\summary.json` completed 3 of 3 cases with 3 export-ready review artifacts, 0 export blocks, 0 infrastructure failures, and 0 high-risk patches.
+Latest verified submission proof: [docs/benchmark-proof/submission-proof-v2-summary.md](docs/benchmark-proof/submission-proof-v2-summary.md) records 3 of 3 cases with 3 export-ready review artifacts, 0 export blocks, 0 infrastructure failures, and 0 high-risk patches. The raw local output was captured at `work\benchmark-runs\submission-proof-v2\summary.json`.
 
 ## CLI
 

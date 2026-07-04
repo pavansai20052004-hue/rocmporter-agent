@@ -36,36 +36,31 @@ export const demoRepositories = [
 ]
 
 export const benchmarkProof = {
-  runName: 'quality-check-expanded-v1',
-  summaryPath: 'work/benchmark-runs/quality-check-expanded-v1/summary.json',
-  headline: '4 export-ready review bundles',
+  runName: 'submission-proof-v2',
+  summaryPath: 'work/benchmark-runs/submission-proof-v2/summary.json',
+  headline: '3 export-ready review artifacts',
   summary:
-    'Focused benchmark run completed across PyTorch extension and flash-attention build paths with 0 high-risk outputs. Apply is intentionally blocked until a live workspace and ROCm hardware validation are available.',
+    'Final proof run completed 3/3 pinned CUDA build-system cases with 3 export-ready review artifacts, 0 export blocks, 0 infrastructure failures, and 0 high-risk outputs. Apply remains gated until ROCm validation.',
   totals: [
-    { label: 'Cases', value: '4/4' },
-    { label: 'Export ready', value: '4' },
+    { label: 'Cases', value: '3/3' },
+    { label: 'Export ready', value: '3' },
     { label: 'High risk', value: '0' },
     { label: 'Apply ready', value: '0' },
   ],
   cases: [
     {
-      name: 'extension-cpp',
+      name: 'extension-cpp-build',
       target: 'extension_cpp/setup.py',
       risk: 'low',
     },
     {
-      name: 'extension-cpp-stable',
+      name: 'extension-cpp-stable-abi',
       target: 'extension_cpp_stable/setup.py',
       risk: 'low',
     },
     {
-      name: 'flash-attention',
-      target: 'csrc/fused_dense_lib/setup.py',
-      risk: 'medium',
-    },
-    {
-      name: 'flash-attention-layer-norm',
-      target: 'csrc/layer_norm/setup.py',
+      name: 'cuda-samples-cmake',
+      target: 'CMakeLists.txt',
       risk: 'medium',
     },
   ],
