@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           cd frontend
-          npm ci
+          npm install
 
       - name: Install backend dependencies
         shell: bash
@@ -193,7 +193,7 @@ jobs:
         shell: bash
         run: |
           cd frontend
-          npm ci
+          npm install
 
       - name: Run scan, patch generation, and export bundle
         shell: bash
