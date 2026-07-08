@@ -1,4 +1,26 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+function resolveApiBase() {
+  // Runtime override so the hosted demo can point at a tunneled local backend:
+  //   https://<pages-url>/?api=https://your-tunnel.trycloudflare.com
+  // The value persists in localStorage; clear it with ?api=reset
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get('api')
+    if (fromQuery === 'reset') {
+      window.localStorage.removeItem('rocmporter-api-base')
+    } else if (fromQuery) {
+      const cleaned = fromQuery.replace(/\/+$/, '')
+      window.localStorage.setItem('rocmporter-api-base', cleaned)
+      return cleaned
+    } else {
+      const stored = window.localStorage.getItem('rocmporter-api-base')
+      if (stored) {
+        return stored
+      }
+    }
+  } catch {}
+  return import.meta.env.VITE_API_BASE_URL ?? ''
+}
+
+const API_BASE = resolveApiBase()
 
 async function request(path, options = {}) {
   let response
