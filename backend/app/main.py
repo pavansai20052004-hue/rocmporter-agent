@@ -54,7 +54,7 @@ app.add_middleware(
 
 @app.get("/api/health")
 def healthcheck() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "service": "rocmporter-agent", "version": app.version}
 
 
 @app.post("/api/scans", response_model=ScanStatus)

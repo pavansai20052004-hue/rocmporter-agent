@@ -75,6 +75,10 @@ export function getApiUrl(path) {
   return `${API_BASE}${path}`
 }
 
+export function getHealth() {
+  return request('/api/health')
+}
+
 export function createScan(repoUrl) {
   return request('/api/scans', {
     method: 'POST',

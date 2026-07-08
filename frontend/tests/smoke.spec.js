@@ -2,6 +2,13 @@ import { expect, test } from '@playwright/test'
 
 async function stubOllamaStatus(page) {
   const checkedAt = new Date('2026-07-01T06:00:00.000Z').toISOString()
+  await page.route('**/api/health', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok' }),
+    })
+  })
   await page.route('**/api/ollama/status**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -83,7 +90,9 @@ test('sample scan demo flow loads report, patch, export, and review states', asy
 
   await page.getByRole('button', { name: 'Load Sample Scan' }).click()
   await expect(page.getByRole('heading', { name: 'extension-cpp' })).toBeVisible()
-  await expect(page.getByText('Build configuration is tied to CUDA or NVCC')).toBeVisible()
+  await expect(page.getByText('Executive Summary')).toBeVisible()
+  await expect(page.getByText(/scores 54\/100 for ROCm portability/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Build configuration is tied to CUDA or NVCC' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Generate Patch' }).first().click()
   await expect(page.getByText('sample_patch_setup_py_rocm', { exact: true })).toBeVisible()

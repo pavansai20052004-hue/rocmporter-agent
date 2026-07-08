@@ -6,6 +6,7 @@ import {
   createPatch,
   createScan,
   getApiUrl,
+  getHealth,
   getOllamaStatus,
   getPatches,
   getPatch,
@@ -67,6 +68,8 @@ function App() {
   const [githubPrNumber, setGitHubPrNumber] = useState('')
   const [shouldPostReview, setShouldPostReview] = useState(false)
   const [isDemoMode, setIsDemoMode] = useState(false)
+  const [apiHealth, setApiHealth] = useState('checking')
+  const [toast, setToast] = useState(null)
   const patchInFlight = patchJob?.status === 'queued' || patchJob?.status === 'running'
 
   const applyOllamaState = useCallback(
@@ -115,6 +118,40 @@ function App() {
       window.clearInterval(intervalId)
     }
   }, [applyOllamaState, isWarmingModel, patchInFlight, selectedModel])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function checkApiHealth() {
+      try {
+        await getHealth()
+        if (!cancelled) {
+          setApiHealth('ok')
+        }
+      } catch {
+        if (!cancelled) {
+          setApiHealth('error')
+        }
+      }
+    }
+
+    checkApiHealth()
+    const intervalId = window.setInterval(checkApiHealth, 15000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!toast) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setToast(null), 2400)
+    return () => window.clearTimeout(timeoutId)
+  }, [toast])
 
   useEffect(() => {
     if (!scan || scan.status === 'completed' || scan.status === 'failed') {
@@ -576,7 +613,20 @@ function App() {
     }
     try {
       await navigator.clipboard.writeText(githubReview.commentBody)
+      setToast('GitHub review comment copied to clipboard.')
     } catch {}
+  }
+
+  async function handleCopyDiff() {
+    if (!patchJob?.diff) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(patchJob.diff)
+      setToast('Patch diff copied to clipboard.')
+    } catch {
+      setToast('Could not copy diff — check browser clipboard permissions.')
+    }
   }
 
   async function handleRefreshOllama() {
@@ -657,15 +707,38 @@ function App() {
     isDemoMode,
   })
   const ollamaFacts = buildOllamaFacts(ollamaStatus)
+  const executiveSummary = buildExecutiveSummary(report)
+  const scoreTone = scoreToneClass(report?.summary.portabilityScore)
+  const scanInProgress = scan && scan.status !== 'completed' && scan.status !== 'failed'
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyeline">ROCmPorter Product Build</p>
-          <h1>ROCmPorter Agent</h1>
+      <div className="ambient-bg" aria-hidden="true"></div>
+      <div className="ambient-grid" aria-hidden="true"></div>
+      {toast ? (
+        <div className="toast-banner" role="status" aria-live="polite">
+          {toast}
         </div>
-        <div className="topbar-chip">{scan?.status ?? 'idle'}</div>
+      ) : null}
+
+      <header className="topbar">
+        <div className="brand-block">
+          <div className="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7.5 2.5h14v14l-4-4v-6h-6l-4-4Z" fill="#fff" />
+              <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
+            </svg>
+          </div>
+          <div>
+            <p className="eyeline">ROCmPorter Product Build</p>
+            <h1>ROCmPorter Agent</h1>
+            <p className="brand-tagline">CUDA-to-ROCm readiness scans, reviewable patch artifacts, and audit-grade exports — fully local.</p>
+          </div>
+        </div>
+        <div className="topbar-actions">
+          <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
+          <div className="topbar-chip">{scan?.status ?? 'idle'}</div>
+        </div>
       </header>
 
       <BenchmarkProofPanel proof={benchmarkProof} />
@@ -806,7 +879,10 @@ function App() {
               <h3>{scan?.progress.stage ?? 'waiting'}</h3>
             </div>
             <div className="progress-track" aria-hidden="true">
-              <div className="progress-bar" style={{ width: `${scan?.progress.percent ?? 0}%` }}></div>
+              <div
+                className={`progress-bar${scanInProgress ? ' progress-bar-active' : ''}`}
+                style={{ width: `${scan?.progress.percent ?? 0}%` }}
+              ></div>
             </div>
             <p className="status-copy">
               {scan
@@ -839,11 +915,31 @@ function App() {
               >
                 Export With Patch
               </button>
-              <div className="score-orb">
+              <div
+                className={`score-orb ${scoreTone}`}
+                style={{ '--score': typeof readinessScore === 'number' ? readinessScore : 0 }}
+                role="img"
+                aria-label={`ROCm portability score ${readinessScore} out of 100`}
+              >
                 <span>{readinessScore}</span>
+                <small className="score-orb-caption">/ 100</small>
               </div>
             </div>
           </div>
+
+          {report ? (
+            <section className="panel-card executive-summary-card">
+              <div className="section-head compact-head">
+                <div>
+                  <p className="section-label">Executive Summary</p>
+                  <h3>ROCm migration readiness at a glance</h3>
+                </div>
+                <span className="support-chip">deterministic</span>
+              </div>
+              <p className="executive-summary-text">{executiveSummary}</p>
+              <SeverityBreakdown findings={report.findings} />
+            </section>
+          ) : null}
 
           <div className="summary-grid">
             <article className="metric-card">
@@ -862,6 +958,20 @@ function App() {
               <span className="metric-label">Build Systems</span>
               <strong>{report?.build.buildSystems.join(', ') ?? 'n/a'}</strong>
             </article>
+            {report?.coverage ? (
+              <>
+                <article className="metric-card">
+                  <span className="metric-label">Files Scanned</span>
+                  <strong>
+                    {report.coverage.scannedFiles}/{report.coverage.totalFiles}
+                  </strong>
+                </article>
+                <article className="metric-card">
+                  <span className="metric-label">Ruleset</span>
+                  <strong>{report.rulesetVersion ?? 'n/a'}</strong>
+                </article>
+              </>
+            ) : null}
           </div>
 
           <div className="report-grid">
@@ -1236,8 +1346,11 @@ function App() {
                           <p className="section-label">Unified Diff</p>
                           <h4>Unified diff artifact</h4>
                         </div>
+                        <button type="button" className="secondary-button" onClick={handleCopyDiff}>
+                          Copy Diff
+                        </button>
                       </div>
-                      <pre className="diff-code">{patchJob.diff}</pre>
+                      <DiffView text={patchJob.diff} />
                     </div>
                   ) : null}
                 </div>
@@ -1463,6 +1576,137 @@ function SamplePreviewNote({ text }) {
       <span>{text}</span>
     </div>
   )
+}
+
+function SystemStatusChips({ apiHealth, ollamaStatus }) {
+  const apiLabel = apiHealth === 'ok' ? 'API online' : apiHealth === 'error' ? 'API offline' : 'API checking'
+  const ollamaLabel = ollamaStatus?.reachable
+    ? ollamaStatus.preferredModel?.loaded
+      ? 'Ollama ready'
+      : 'Ollama online'
+    : ollamaStatus
+      ? 'Ollama offline'
+      : 'Ollama checking'
+
+  return (
+    <div className="system-status-row" aria-label="System status">
+      <span className={`status-chip ${apiHealth === 'ok' ? 'online' : apiHealth === 'error' ? 'offline' : 'checking'}`}>
+        {apiLabel}
+      </span>
+      <span
+        className={`status-chip ${
+          ollamaStatus?.reachable ? (ollamaStatus.preferredModel?.loaded ? 'online' : 'warm') : ollamaStatus ? 'offline' : 'checking'
+        }`}
+      >
+        {ollamaLabel}
+      </span>
+    </div>
+  )
+}
+
+function SeverityBreakdown({ findings }) {
+  if (!findings?.length) {
+    return null
+  }
+
+  const counts = countBySeverity(findings)
+  const total = findings.length
+  const severities = ['critical', 'high', 'medium', 'low']
+
+  return (
+    <div className="severity-breakdown">
+      <div className="severity-bar" aria-label="Finding severity distribution">
+        {severities.map((severity) =>
+          counts[severity] ? (
+            <div
+              key={severity}
+              className={`severity-segment ${severity}`}
+              style={{ flexGrow: counts[severity] }}
+              title={`${severity}: ${counts[severity]}`}
+            />
+          ) : null,
+        )}
+      </div>
+      <div className="severity-legend">
+        {severities.map((severity) =>
+          counts[severity] ? (
+            <span key={severity} className={`legend-item ${severity}`}>
+              {severity} ({counts[severity]})
+            </span>
+          ) : null,
+        )}
+        <span className="legend-total">{total} total</span>
+      </div>
+    </div>
+  )
+}
+
+function buildExecutiveSummary(report) {
+  if (!report) {
+    return ''
+  }
+
+  const { findings, summary, build, repo } = report
+  const priorityCount = findings.filter((finding) => finding.severity === 'critical' || finding.severity === 'high').length
+  const topFinding =
+    findings.find((finding) => finding.severity === 'critical' || finding.severity === 'high') ?? findings[0] ?? null
+  const signalPreview = (build.gpuSignals ?? []).slice(0, 3)
+  const extraSignals = Math.max(0, (build.gpuSignals?.length ?? 0) - signalPreview.length)
+
+  const sentences = [
+    `Repository "${repo.name}" scores ${summary.portabilityScore}/100 for ROCm portability with ${summary.riskLevel} overall risk.`,
+    findings.length
+      ? `The scan surfaced ${findings.length} compatibility signal${findings.length === 1 ? '' : 's'}${priorityCount ? `, including ${priorityCount} high-priority item${priorityCount === 1 ? '' : 's'}` : ''}.`
+      : 'No CUDA-specific blockers were detected by the current ruleset.',
+  ]
+
+  if (topFinding) {
+    sentences.push(`Primary focus: ${topFinding.title}.`)
+  }
+
+  if (signalPreview.length) {
+    sentences.push(
+      `Start with ${signalPreview.join(', ')}${extraSignals ? ` and ${extraSignals} more GPU-related file${extraSignals === 1 ? '' : 's'}` : ''}.`,
+    )
+  }
+
+  sentences.push(`Estimated migration effort: ${summary.estimatedEffort}.`)
+  return sentences.join(' ')
+}
+
+function diffLineClass(line) {
+  if (line.startsWith('+++') || line.startsWith('---')) return 'diff-line file'
+  if (line.startsWith('@@')) return 'diff-line hunk'
+  if (line.startsWith('+')) return 'diff-line add'
+  if (line.startsWith('-')) return 'diff-line del'
+  if (line.startsWith('diff ') || line.startsWith('index ')) return 'diff-line meta'
+  return 'diff-line'
+}
+
+function DiffView({ text }) {
+  return (
+    <pre className="diff-code">
+      {text.split('\n').map((line, index) => (
+        <span key={index} className={diffLineClass(line)}>
+          {line}
+          {'\n'}
+        </span>
+      ))}
+    </pre>
+  )
+}
+
+function scoreToneClass(score) {
+  if (typeof score !== 'number') {
+    return ''
+  }
+  if (score >= 75) {
+    return 'score-good'
+  }
+  if (score >= 50) {
+    return 'score-mid'
+  }
+  return 'score-low'
 }
 
 function BenchmarkProofPanel({ proof }) {
@@ -1870,56 +2114,4 @@ function buildOllamaFacts(status) {
       : preferred.resolvedName ?? preferred.requestedName ?? 'n/a'
 
   return [
-    { label: 'Last checked', value: formatTimestamp(status.checkedAt) },
-    { label: 'Model route', value: resolvedModel },
-    { label: 'Warm models', value: `${status.loadedModelCount ?? 0}/${status.modelCount ?? 0}` },
-    { label: 'Response time', value: status.responseTimeMs ? `${status.responseTimeMs} ms` : 'n/a' },
-    { label: 'Running', value: runningModel?.name ?? 'none' },
-    { label: 'Processor', value: runningModel?.processor ?? 'n/a' },
-  ]
-}
-
-function formatTimestamp(value) {
-  if (!value) {
-    return 'n/a'
-  }
-  return new Date(value).toLocaleString()
-}
-
-function verificationLabel(verification) {
-  if (verification.exportReady && !verification.applyReady) {
-    return 'apply gate blocked'
-  }
-  return `verification ${verification.state}`
-}
-
-function verificationSeverity(verification) {
-  if (verification.exportReady && !verification.applyReady) {
-    return 'medium'
-  }
-  if (verification.state === 'failed') {
-    return 'high'
-  }
-  if (verification.state === 'warning') {
-    return 'medium'
-  }
-  return 'low'
-}
-
-function isLikelySlowModel(model) {
-  if (!model) {
-    return false
-  }
-
-  const rawParameterSize = typeof model.details?.parameterSize === 'string' ? model.details.parameterSize : ''
-  const parameterSizeMatch = rawParameterSize.match(/([\d.]+)/)
-  const parameterSize = parameterSizeMatch ? Number(parameterSizeMatch[1]) : null
-
-  return Boolean((typeof model.size === 'number' && model.size >= 7_000_000_000) || (parameterSize && parameterSize >= 14))
-}
-
-function baseModelName(name) {
-  return (name ?? '').split(':', 1)[0].trim().toLowerCase()
-}
-
-export default App
+    { label: 'Last ch
