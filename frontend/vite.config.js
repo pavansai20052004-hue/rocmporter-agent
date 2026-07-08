@@ -6,4 +6,11 @@ const backendTarget = process.env.VITE_API_PROXY_TARGET ?? process.env.VITE_API_
 // https://vite.dev/config/
 export default defineConfig({
   // Relative base so the built app works on GitHub Pages (served from /AMD_HACKTHON/)
-  ba
+  base: './',
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': backendTarget,
+    },
+  },
+})

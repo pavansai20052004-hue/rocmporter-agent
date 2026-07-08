@@ -2114,4 +2114,56 @@ function buildOllamaFacts(status) {
       : preferred.resolvedName ?? preferred.requestedName ?? 'n/a'
 
   return [
-    { label: 'Last ch
+    { label: 'Last checked', value: formatTimestamp(status.checkedAt) },
+    { label: 'Model route', value: resolvedModel },
+    { label: 'Warm models', value: `${status.loadedModelCount ?? 0}/${status.modelCount ?? 0}` },
+    { label: 'Response time', value: status.responseTimeMs ? `${status.responseTimeMs} ms` : 'n/a' },
+    { label: 'Running', value: runningModel?.name ?? 'none' },
+    { label: 'Processor', value: runningModel?.processor ?? 'n/a' },
+  ]
+}
+
+function formatTimestamp(value) {
+  if (!value) {
+    return 'n/a'
+  }
+  return new Date(value).toLocaleString()
+}
+
+function verificationLabel(verification) {
+  if (verification.exportReady && !verification.applyReady) {
+    return 'apply gate blocked'
+  }
+  return `verification ${verification.state}`
+}
+
+function verificationSeverity(verification) {
+  if (verification.exportReady && !verification.applyReady) {
+    return 'medium'
+  }
+  if (verification.state === 'failed') {
+    return 'high'
+  }
+  if (verification.state === 'warning') {
+    return 'medium'
+  }
+  return 'low'
+}
+
+function isLikelySlowModel(model) {
+  if (!model) {
+    return false
+  }
+
+  const rawParameterSize = typeof model.details?.parameterSize === 'string' ? model.details.parameterSize : ''
+  const parameterSizeMatch = rawParameterSize.match(/([\d.]+)/)
+  const parameterSize = parameterSizeMatch ? Number(parameterSizeMatch[1]) : null
+
+  return Boolean((typeof model.size === 'number' && model.size >= 7_000_000_000) || (parameterSize && parameterSize >= 14))
+}
+
+function baseModelName(name) {
+  return (name ?? '').split(':', 1)[0].trim().toLowerCase()
+}
+
+export default App
