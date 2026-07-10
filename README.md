@@ -2,18 +2,44 @@
 
 ROCmPorter Agent is a local-first hackathon product that scans a GitHub repository for CUDA and NVIDIA-specific assumptions, then produces an AMD ROCm readiness report with evidence, risk level, next steps, export bundles, review-scored patch artifacts, and GitHub PR review outputs. Current verified benchmark artifacts are export-ready review bundles, not apply-ready migrations. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true`.
 
+## Live demo (zero install)
+
+- **Vercel (primary):** <https://rocmporter-agent.vercel.app>
+- GitHub Pages (mirror): <https://pavansai20052004-hue.github.io/AMD_HACKTHON/>
+
+The hosted build runs in **sample mode** by default — click `Load Sample Scan` to walk the full report → patch → verify → export flow entirely offline. To drive the hosted UI from a real local backend, start the backend, expose it over HTTPS (for example `cloudflared tunnel --url http://127.0.0.1:8000`), add the hosted origin to `APP_CORS_ORIGINS` in `backend/.env`, then open:
+
+```text
+https://rocmporter-agent.vercel.app/?api=https://<your-tunnel>.trycloudflare.com
+```
+
+The override must be an HTTPS URL (browsers block plain-http API calls from an https page) and persists in the browser; clear it with `?api=reset`.
+
+## Prerequisites
+
+- Python 3.10+ (3.11 recommended)
+- Node.js 20+
+- Git on PATH (used for repository cloning)
+- Optional: [Ollama](https://ollama.com) with a coding model such as `qwen2.5-coder` for local patch generation
+
+The `scripts/local/*.ps1` helpers are Windows PowerShell conveniences; the manual `uvicorn` + `vite` commands in *Run locally* work on any OS.
+
 ## Judge Quick Start
 
 1. Read the portal-ready pitch: [docs/submission-pitch.md](docs/submission-pitch.md)
 2. Review the tracked proof summary: [docs/benchmark-proof/submission-proof-v2-summary.md](docs/benchmark-proof/submission-proof-v2-summary.md)
 3. Open the screenshot gallery: [docs/screenshots/README.md](docs/screenshots/README.md)
-4. Start the local product:
+4. Install dependencies once, then start the local product:
 
    ```powershell
+   cd backend; python -m venv .venv; .\.venv\Scripts\python -m pip install -r requirements.txt; cd ..
+   cd frontend; npm install; cd ..
    .\scripts\local\start-local-dev.ps1
    ```
 
 5. Open `http://127.0.0.1:5178` and click `Load Sample Scan` for the fastest reliable demo.
+
+No time to install? Use the [hosted demo](https://rocmporter-agent.vercel.app) in sample mode instead.
 
 ## Submission Package
 
@@ -171,7 +197,7 @@ Patch exports are blocked unless the latest verification receipt is export-ready
 
 ## Quality checks
 
-Frontend:
+Frontend (Playwright browsers install once with `npx playwright install chromium`):
 
 ```powershell
 cd frontend
@@ -180,12 +206,21 @@ npm run build
 npm run test:e2e
 ```
 
-Backend:
+Backend (use the project venv interpreter — the tests import FastAPI/pydantic):
 
 ```powershell
-python -m compileall backend\app
-python -m unittest discover -s backend\tests
+backend\.venv\Scripts\python -m compileall backend\app
+backend\.venv\Scripts\python -m unittest discover -s backend\tests
 ```
+
+## Hosted deployments
+
+The static frontend deploys to two targets; the FastAPI backend stays local by design (it clones repositories to disk and talks to a local Ollama daemon, so it is not a fit for serverless hosting):
+
+- **Vercel:** configured by [frontend/vercel.json](frontend/vercel.json) (immutable asset caching, security headers, no SPA rewrites so `/api/*` fails fast into the app's offline messaging). Deploy with `cd frontend && vercel deploy --prod`. In the Vercel dashboard the project root directory is `frontend`; leave `VITE_API_BASE_URL` unset so the hosted demo stays in sample mode.
+- **GitHub Pages:** deployed automatically by [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) on pushes to `main` that touch `frontend/`.
+
+Both hosted builds support the `?api=<https-url>` runtime override described in *Live demo* above.
 
 ## GitHub Action
 

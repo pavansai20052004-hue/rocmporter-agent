@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyPatch,
   createExport,
@@ -33,6 +33,60 @@ import {
 const DEFAULT_MODEL = 'qwen2.5-coder'
 const FALLBACK_MODEL = `${DEFAULT_MODEL}:latest`
 const EXPORT_FORMATS = ['json', 'markdown', 'diff', 'html', 'zip', 'github']
+
+const STATUS_LABELS = {
+  idle: 'Idle',
+  queued: 'Queued',
+  running: 'Running',
+  cloning: 'Cloning',
+  scanning: 'Scanning',
+  generation: 'Generating',
+  completed: 'Complete',
+  failed: 'Failed',
+  applied: 'Applied',
+  rolled_back: 'Rolled back',
+  waiting: 'Waiting',
+}
+
+const WARNING_TITLES = {
+  response_artifact_leak: 'Model output leak detected',
+  partial_patch: 'Partial patch',
+  validation_skipped: 'Validation skipped',
+}
+
+const ACRONYM_FIXES = [
+  [/\brocm\b/gi, 'ROCm'],
+  [/\bcuda\b/gi, 'CUDA'],
+  [/\bgithub\b/gi, 'GitHub'],
+  [/\bnvidia\b/gi, 'NVIDIA'],
+  [/\bapi\b/gi, 'API'],
+]
+
+function humanizeStatus(value) {
+  if (!value) {
+    return 'Idle'
+  }
+  const key = String(value).toLowerCase()
+  if (STATUS_LABELS[key]) {
+    return STATUS_LABELS[key]
+  }
+  const spaced = key.replaceAll('_', ' ')
+  let label = spaced.charAt(0).toUpperCase() + spaced.slice(1)
+  for (const [pattern, replacement] of ACRONYM_FIXES) {
+    label = label.replace(pattern, replacement)
+  }
+  return label
+}
+
+function warningTitle(warning) {
+  if (warning.code && WARNING_TITLES[warning.code]) {
+    return WARNING_TITLES[warning.code]
+  }
+  if (warning.code) {
+    return humanizeStatus(warning.code)
+  }
+  return `${humanizeStatus(warning.severity)} warning`
+}
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('https://github.com/pytorch/extension-cpp')
@@ -70,6 +124,8 @@ function App() {
   const [isDemoMode, setIsDemoMode] = useState(false)
   const [apiHealth, setApiHealth] = useState('checking')
   const [toast, setToast] = useState(null)
+  const verifyingPatchIdRef = useRef(null)
+  const patchPanelRef = useRef(null)
   const patchInFlight = patchJob?.status === 'queued' || patchJob?.status === 'running'
 
   const applyOllamaState = useCallback(
@@ -149,7 +205,7 @@ function App() {
       return undefined
     }
 
-    const timeoutId = window.setTimeout(() => setToast(null), 2400)
+    const timeoutId = window.setTimeout(() => setToast(null), toast.tone === 'error' ? 4500 : 2400)
     return () => window.clearTimeout(timeoutId)
   }, [toast])
 
@@ -158,16 +214,36 @@ function App() {
       return undefined
     }
 
+    let cancelled = false
+    let consecutiveFailures = 0
+
     const intervalId = window.setInterval(async () => {
       try {
         const nextScan = await getScan(scan.scanId)
-        setScan(nextScan)
+        if (!cancelled && nextScan.scanId === scan.scanId) {
+          consecutiveFailures = 0
+          setScan(nextScan)
+        }
       } catch (pollError) {
+        if (cancelled) {
+          return
+        }
+        consecutiveFailures += 1
+        if (consecutiveFailures >= 4) {
+          setScan((prev) =>
+            prev && prev.scanId === scan.scanId
+              ? { ...prev, status: 'failed', error: pollError.message }
+              : prev,
+          )
+        }
         setError(pollError.message)
       }
     }, 1500)
 
-    return () => window.clearInterval(intervalId)
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
   }, [scan])
 
   useEffect(() => {
@@ -229,16 +305,36 @@ function App() {
       return undefined
     }
 
+    let cancelled = false
+    let consecutiveFailures = 0
+
     const intervalId = window.setInterval(async () => {
       try {
         const nextPatch = await getPatch(patchJob.scanId, patchJob.patchId)
-        setPatchJob(nextPatch)
+        if (!cancelled && nextPatch.patchId === patchJob.patchId) {
+          consecutiveFailures = 0
+          setPatchJob(nextPatch)
+        }
       } catch (pollError) {
+        if (cancelled) {
+          return
+        }
+        consecutiveFailures += 1
+        if (consecutiveFailures >= 4) {
+          setPatchJob((prev) =>
+            prev && prev.patchId === patchJob.patchId
+              ? { ...prev, status: 'failed', error: pollError.message }
+              : prev,
+          )
+        }
         setPatchError(pollError.message)
       }
     }, 1800)
 
-    return () => window.clearInterval(intervalId)
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
   }, [patchJob])
 
   useEffect(() => {
@@ -258,20 +354,24 @@ function App() {
   }, [patchJob])
 
   useEffect(() => {
-    if (!scan || !patchJob || patchJob.status !== 'completed') {
+    if (!scan || !patchJob || patchJob.status !== 'completed' || isDemoMode) {
       return undefined
     }
-    if (patchVerification?.patchId === patchJob.patchId || isVerifyingPatch) {
+    // Re-entrancy is tracked in a ref: gating on isVerifyingPatch state would
+    // cancel this effect the moment the flag is set, stranding the busy state.
+    if (patchVerification?.patchId === patchJob.patchId || verifyingPatchIdRef.current === patchJob.patchId) {
       return undefined
     }
 
     let cancelled = false
+    const targetPatchId = patchJob.patchId
+    verifyingPatchIdRef.current = targetPatchId
 
     async function loadVerificationReceipt() {
       setIsVerifyingPatch(true)
       setVerificationError('')
       try {
-        const receipt = await verifyPatch(scan.scanId, patchJob.patchId)
+        const receipt = await verifyPatch(scan.scanId, targetPatchId)
         if (!cancelled) {
           setPatchVerification(receipt)
         }
@@ -280,9 +380,10 @@ function App() {
           setVerificationError(nextError.message)
         }
       } finally {
-        if (!cancelled) {
-          setIsVerifyingPatch(false)
+        if (verifyingPatchIdRef.current === targetPatchId) {
+          verifyingPatchIdRef.current = null
         }
+        setIsVerifyingPatch(false)
       }
     }
 
@@ -291,7 +392,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [isVerifyingPatch, patchJob, patchVerification, scan])
+  }, [isDemoMode, patchJob, patchVerification, scan])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -359,6 +460,17 @@ function App() {
     setError('')
   }
 
+  function focusPatchPanel() {
+    // Small delay so the focus lands after React commits the new patch state.
+    window.setTimeout(() => {
+      const panel = patchPanelRef.current
+      if (panel) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        panel.focus({ preventScroll: true })
+      }
+    }, 120)
+  }
+
   async function handleGeneratePatch(finding, evidence) {
     if (!scan || isRequestingPatch || isPatchInFlight(patchJob)) {
       return
@@ -376,6 +488,7 @@ function App() {
       setPatchVerification(sampleVerification)
       setExportBundle(null)
       setGitHubReview(null)
+      focusPatchPanel()
       return
     }
 
@@ -400,6 +513,7 @@ function App() {
     setPatchVerification(null)
     setExportBundle(null)
     setGitHubReview(null)
+    focusPatchPanel()
     try {
       const nextPatch = await createPatch(scan.scanId, {
         findingId: finding.id,
@@ -613,8 +727,10 @@ function App() {
     }
     try {
       await navigator.clipboard.writeText(githubReview.commentBody)
-      setToast('GitHub review comment copied to clipboard.')
-    } catch {}
+      setToast({ message: 'GitHub review comment copied to clipboard.', tone: 'success' })
+    } catch {
+      setToast({ message: 'Could not copy the review comment — check browser clipboard permissions.', tone: 'error' })
+    }
   }
 
   async function handleCopyDiff() {
@@ -623,9 +739,9 @@ function App() {
     }
     try {
       await navigator.clipboard.writeText(patchJob.diff)
-      setToast('Patch diff copied to clipboard.')
+      setToast({ message: 'Patch diff copied to clipboard.', tone: 'success' })
     } catch {
-      setToast('Could not copy diff — check browser clipboard permissions.')
+      setToast({ message: 'Could not copy diff — check browser clipboard permissions.', tone: 'error' })
     }
   }
 
@@ -710,14 +826,18 @@ function App() {
   const executiveSummary = buildExecutiveSummary(report)
   const scoreTone = scoreToneClass(report?.summary.portabilityScore)
   const scanInProgress = scan && scan.status !== 'completed' && scan.status !== 'failed'
+  const scanFailed = scan?.status === 'failed'
 
   return (
     <div className="app-shell">
       <div className="ambient-bg" aria-hidden="true"></div>
       <div className="ambient-grid" aria-hidden="true"></div>
       {toast ? (
-        <div className="toast-banner" role="status" aria-live="polite">
-          {toast}
+        <div className={`toast-banner${toast.tone === 'error' ? ' error' : ''}`} role="status" aria-live="polite">
+          <span>{toast.message}</span>
+          <button type="button" className="toast-dismiss" aria-label="Dismiss notification" onClick={() => setToast(null)}>
+            ×
+          </button>
         </div>
       ) : null}
 
@@ -737,7 +857,7 @@ function App() {
         </div>
         <div className="topbar-actions">
           <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
-          <div className="topbar-chip">{scan?.status ?? 'idle'}</div>
+          <div className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</div>
         </div>
       </header>
 
@@ -785,6 +905,7 @@ function App() {
                   type="button"
                   className="repo-chip"
                   title={repo.note}
+                  aria-label={`Use ${repo.name}: ${repo.note}`}
                   onClick={() => handleChooseDemoRepository(repo.url)}
                 >
                   {repo.name}
@@ -866,6 +987,7 @@ function App() {
                 type="button"
                 className="secondary-button"
                 disabled={!ollamaReadiness.canWarm || isWarmingModel}
+                title={!ollamaReadiness.canWarm && !isWarmingModel ? ollamaReadiness.message : undefined}
                 onClick={handleWarmSelectedModel}
               >
                 {isWarmingModel ? 'Warming Model...' : 'Warm Selected Model'}
@@ -876,18 +998,20 @@ function App() {
           <section className="panel-card status-card">
             <div>
               <p className="section-label">Scan Progress</p>
-              <h3>{scan?.progress.stage ?? 'waiting'}</h3>
+              <h3>{humanizeStatus(scan?.progress.stage ?? 'waiting')}</h3>
             </div>
             <div className="progress-track" aria-hidden="true">
               <div
-                className={`progress-bar${scanInProgress ? ' progress-bar-active' : ''}`}
-                style={{ width: `${scan?.progress.percent ?? 0}%` }}
+                className={`progress-bar${scanInProgress ? ' progress-bar-active' : ''}${scanFailed ? ' progress-bar-failed' : ''}`}
+                style={{ width: `${scanFailed ? 100 : (scan?.progress.percent ?? 0)}%` }}
               ></div>
             </div>
             <p className="status-copy">
-              {scan
-                ? `${scan.progress.percent}% complete for ${trimRepoUrl(scan.repoUrl)}`
-                : 'Start with one public repository and we will generate a migration report plus patch-ready evidence.'}
+              {scanFailed
+                ? `Scan failed for ${trimRepoUrl(scan.repoUrl)}. ${scan.error ?? 'Check the URL and try again.'}`
+                : scan
+                  ? `${scan.progress.percent}% complete for ${trimRepoUrl(scan.repoUrl)}`
+                  : 'Start with one public repository and we will generate a migration report plus patch-ready evidence.'}
             </p>
           </section>
         </aside>
@@ -896,36 +1020,119 @@ function App() {
           <div className="report-header">
             <div>
               <p className="section-label">ROCm Readiness</p>
-              <h2>{report ? report.repo.name : 'Waiting for first report'}</h2>
+              {scanInProgress ? (
+                <h2 className="loading-inline">
+                  <span className="spinner" aria-hidden="true"></span>
+                  Scanning {trimRepoUrl(scan.repoUrl)}… {scan.progress.percent}%
+                </h2>
+              ) : (
+                <h2>{report ? report.repo.name : scanFailed ? 'Scan failed' : 'Ready when you are'}</h2>
+              )}
             </div>
             <div className="header-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!report || isExporting}
-                onClick={() => handleCreateExport(false)}
-              >
-                {isExporting ? 'Building Bundle...' : 'Export Report'}
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!report || !canExportCurrentPatch}
-                onClick={() => handleCreateExport(true)}
-              >
-                Export With Patch
-              </button>
+              {report ? (
+                <>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={isExporting}
+                    onClick={() => handleCreateExport(false)}
+                  >
+                    {isExporting ? 'Building Bundle...' : 'Export Report'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!canExportCurrentPatch}
+                    title={exportBlockReason || undefined}
+                    onClick={() => handleCreateExport(true)}
+                  >
+                    Export With Patch
+                  </button>
+                </>
+              ) : null}
               <div
-                className={`score-orb ${scoreTone}`}
+                className={`score-orb ${scoreTone}${report ? '' : ' score-empty'}`}
                 style={{ '--score': typeof readinessScore === 'number' ? readinessScore : 0 }}
-                role="img"
-                aria-label={`ROCm portability score ${readinessScore} out of 100`}
+                role={report ? 'img' : undefined}
+                aria-hidden={report ? undefined : true}
+                aria-label={report ? `ROCm portability score ${readinessScore} out of 100` : undefined}
               >
                 <span>{readinessScore}</span>
                 <small className="score-orb-caption">/ 100</small>
               </div>
             </div>
           </div>
+
+          {scanFailed ? (
+            <section className="panel-card scan-failed-card">
+              <div className="error-banner">
+                <strong>Scan failed.</strong>{' '}
+                {scan.error || error || 'The repository could not be cloned or scanned. Check the URL and try again.'}
+              </div>
+              <p className="status-copy">
+                Double-check that the repository URL is public and reachable, then analyze it again — or load the
+                sample scan to keep exploring the product.
+              </p>
+              <div className="zero-state-cta">
+                <button type="button" className="primary-button" onClick={handleSubmit}>
+                  Try Again
+                </button>
+                <button type="button" className="secondary-button" onClick={handleLoadSampleScan}>
+                  Load Sample Scan
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {scanInProgress && !report ? (
+            <section className="panel-card" aria-label="Scan in progress">
+              <p className="section-label">Analyzing Repository</p>
+              <h3>
+                {humanizeStatus(scan.progress.stage)} — {scan.progress.percent}%
+              </h3>
+              <p className="status-copy">
+                Cloning the repository and scanning for CUDA and NVIDIA-specific assumptions. This usually takes a few
+                seconds on public repos.
+              </p>
+              <div className="skeleton-block" style={{ padding: '18px' }} aria-hidden="true">
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line medium"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line short"></div>
+              </div>
+            </section>
+          ) : null}
+
+          {!report && !scanInProgress && !scanFailed ? (
+            <section className="panel-card zero-state-hero">
+              <p className="section-label">ROCm Readiness Report</p>
+              <h3>Scan any CUDA repository. Get an evidence-backed migration report.</h3>
+              <p>
+                The report lands here with a portability score, file-level findings, reviewable ROCm patch artifacts,
+                and audit-grade export bundles.
+              </p>
+              <div className="zero-state-steps">
+                <div className="zero-state-step">
+                  <strong>1</strong>
+                  <span>Scan a repository for CUDA and NVIDIA-specific assumptions.</span>
+                </div>
+                <div className="zero-state-step">
+                  <strong>2</strong>
+                  <span>Generate a reviewable single-file ROCm patch from any evidence file.</span>
+                </div>
+                <div className="zero-state-step">
+                  <strong>3</strong>
+                  <span>Verify, export, and build a GitHub-ready review artifact.</span>
+                </div>
+              </div>
+              <div className="zero-state-cta">
+                <button type="button" className="primary-button" onClick={handleLoadSampleScan}>
+                  Load Sample Scan
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           {report ? (
             <section className="panel-card executive-summary-card">
@@ -941,39 +1148,42 @@ function App() {
             </section>
           ) : null}
 
-          <div className="summary-grid">
-            <article className="metric-card">
-              <span className="metric-label">Risk Level</span>
-              <strong>{report?.summary.riskLevel ?? 'n/a'}</strong>
-            </article>
-            <article className="metric-card">
-              <span className="metric-label">Estimated Effort</span>
-              <strong>{report?.summary.estimatedEffort ?? 'n/a'}</strong>
-            </article>
-            <article className="metric-card">
-              <span className="metric-label">Languages</span>
-              <strong>{report?.build.languages.join(', ') ?? 'n/a'}</strong>
-            </article>
-            <article className="metric-card">
-              <span className="metric-label">Build Systems</span>
-              <strong>{report?.build.buildSystems.join(', ') ?? 'n/a'}</strong>
-            </article>
-            {report?.coverage ? (
-              <>
-                <article className="metric-card">
-                  <span className="metric-label">Files Scanned</span>
-                  <strong>
-                    {report.coverage.scannedFiles}/{report.coverage.totalFiles}
-                  </strong>
-                </article>
-                <article className="metric-card">
-                  <span className="metric-label">Ruleset</span>
-                  <strong>{report.rulesetVersion ?? 'n/a'}</strong>
-                </article>
-              </>
-            ) : null}
-          </div>
+          {report ? (
+            <div className="summary-grid">
+              <article className="metric-card">
+                <span className="metric-label">Risk Level</span>
+                <strong>{report.summary.riskLevel}</strong>
+              </article>
+              <article className="metric-card">
+                <span className="metric-label">Estimated Effort</span>
+                <strong>{report.summary.estimatedEffort}</strong>
+              </article>
+              <article className="metric-card">
+                <span className="metric-label">Languages</span>
+                <strong>{report.build.languages.join(', ')}</strong>
+              </article>
+              <article className="metric-card">
+                <span className="metric-label">Build Systems</span>
+                <strong>{report.build.buildSystems.join(', ')}</strong>
+              </article>
+              {report.coverage ? (
+                <>
+                  <article className="metric-card">
+                    <span className="metric-label">Files Scanned</span>
+                    <strong>
+                      {report.coverage.scannedFiles}/{report.coverage.totalFiles}
+                    </strong>
+                  </article>
+                  <article className="metric-card">
+                    <span className="metric-label">Ruleset</span>
+                    <strong>{report.rulesetVersion ?? 'n/a'}</strong>
+                  </article>
+                </>
+              ) : null}
+            </div>
+          ) : null}
 
+          {report ? (
           <div className="report-grid">
             <section className="panel-card findings-card">
               <div className="section-head">
@@ -981,12 +1191,13 @@ function App() {
                   <p className="section-label">Compatibility Findings</p>
                   <h3>Evidence-backed blockers and patch entry points</h3>
                 </div>
-                <div className="filter-row">
+                <div className="filter-row" role="group" aria-label="Filter findings by severity">
                   {['all', 'critical', 'high', 'medium', 'low'].map((severity) => (
                     <button
                       key={severity}
                       type="button"
                       className={activeFilter === severity ? 'filter-chip active' : 'filter-chip'}
+                      aria-pressed={activeFilter === severity}
                       onClick={() => setActiveFilter(severity)}
                     >
                       {severity}
@@ -999,7 +1210,7 @@ function App() {
               {report ? (
                 <div className="finding-list">
                   {filteredFindings.map((finding) => (
-                    <article key={finding.id} className="finding-item">
+                    <article key={finding.id} className={`finding-item ${finding.severity}`}>
                       <div className="finding-topline">
                         <span className={`severity-badge ${finding.severity}`}>{finding.severity}</span>
                         <span className="confidence-pill">{finding.confidence} confidence</span>
@@ -1010,7 +1221,10 @@ function App() {
 
                       <div className="evidence-stack">
                         {finding.evidence.map((entry) => (
-                          <div key={`${finding.id}-${entry.path}`} className="evidence-card">
+                          <div
+                            key={`${finding.id}-${entry.path}-${entry.lineStart ?? 'path'}-${entry.lineEnd ?? ''}`}
+                            className="evidence-card"
+                          >
                             <div className="evidence-head">
                               <div>
                                 <strong>{entry.path}</strong>
@@ -1038,7 +1252,7 @@ function App() {
               )}
             </section>
 
-            <section className="panel-card patch-panel">
+            <section className="panel-card patch-panel" ref={patchPanelRef} tabIndex={-1}>
               <p className="section-label">Patch Workspace</p>
               <h3>{activeFinding ? activeFinding.title : 'Generate a patch from any evidence file'}</h3>
               <p className="status-copy">{patchStatusCopy}</p>
@@ -1089,7 +1303,7 @@ function App() {
                   <div className="patch-meta-grid">
                     <div className="metric-card tight-card">
                       <span className="metric-label">Patch Status</span>
-                      <strong>{patchJob.status}</strong>
+                      <strong>{humanizeStatus(patchJob.status)}</strong>
                     </div>
                     <div className="metric-card tight-card">
                       <span className="metric-label">Target File</span>
@@ -1152,14 +1366,14 @@ function App() {
                     <div className="warning-stack">
                       {patchJob.warnings.map((warning) => (
                         <div key={warning.code} className={`warning-banner ${warning.severity}`}>
-                          <strong>{warning.severity}</strong>
+                          <strong>{warningTitle(warning)}</strong>
                           <span>{warning.message}</span>
                         </div>
                       ))}
                     </div>
                   ) : null}
 
-                  {(patchJob.changedLineCount || patchJob.changedHunkCount) && (
+                  {Boolean(patchJob.changedLineCount || patchJob.changedHunkCount) && (
                     <div className="patch-meta-grid">
                       <div className="metric-card tight-card">
                         <span className="metric-label">Changed Lines</span>
@@ -1237,6 +1451,7 @@ function App() {
                           type="button"
                           className="secondary-button"
                           disabled={!canApplyCurrentPatch || isApplyingPatch}
+                          title={applyBlockReason || verificationBlockReason || undefined}
                           onClick={handleApplyPatch}
                         >
                           {isApplyingPatch ? 'Applying Patch...' : 'Apply In Workspace'}
@@ -1318,7 +1533,7 @@ function App() {
                       <span className="metric-label">Latest Workspace Action</span>
                       <div className="patch-meta-grid">
                         <div>
-                          <strong>{patchApply.status}</strong>
+                          <strong>{humanizeStatus(patchApply.status)}</strong>
                           <span className="path-copy">{patchApply.applyId}</span>
                         </div>
                         <div>
@@ -1344,7 +1559,7 @@ function App() {
                       <div className="section-head compact-head">
                         <div>
                           <p className="section-label">Unified Diff</p>
-                          <h4>Unified diff artifact</h4>
+                          <h4>{patchJob.evidencePath}</h4>
                         </div>
                         <button type="button" className="secondary-button" onClick={handleCopyDiff}>
                           Copy Diff
@@ -1559,6 +1774,7 @@ function App() {
               )}
             </section>
           </div>
+          ) : null}
         </section>
       </main>
     </div>
@@ -1938,7 +2154,8 @@ function formatOllamaMeta(status) {
 
 function buildPatchStatusCopy(patchJob, pendingPatchTarget, selectedModel, ollamaReadiness) {
   if (patchJob) {
-    return `${patchJob.status}${patchJob.stage ? ` (${patchJob.stage})` : ''} on ${patchJob.evidencePath} with ${patchJob.model}`
+    const stageSuffix = patchJob.stage ? ` — ${humanizeStatus(patchJob.stage).toLowerCase()}` : ''
+    return `${humanizeStatus(patchJob.status)}${stageSuffix} · ${patchJob.evidencePath} · ${patchJob.model}`
   }
 
   if (pendingPatchTarget) {

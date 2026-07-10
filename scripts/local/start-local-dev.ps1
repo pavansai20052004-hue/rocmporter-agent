@@ -71,11 +71,33 @@ function Start-DevProcess {
 }
 
 if (-not (Test-Path $BackendPython)) {
-    throw "Backend virtual environment missing. Run: cd backend; python -m venv .venv; .\.venv\Scripts\python -m pip install -r requirements.txt"
+    Write-Host "Backend virtual environment missing - creating it now (one-time setup)..."
+    Push-Location $BackendDir
+    try {
+        python -m venv .venv
+        if (-not (Test-Path $BackendPython)) {
+            throw "Could not create backend\.venv. Install Python 3.10+ and retry."
+        }
+        & $BackendPython -m pip install -r requirements.txt
+        if ($LASTEXITCODE -ne 0) {
+            throw "Backend dependency install failed. Run manually: cd backend; .\.venv\Scripts\python -m pip install -r requirements.txt"
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 if (-not (Test-Path (Join-Path $FrontendDir "node_modules"))) {
-    throw "Frontend dependencies missing. Run: cd frontend; npm install"
+    Write-Host "Frontend dependencies missing - running npm install (one-time setup)..."
+    Push-Location $FrontendDir
+    try {
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            throw "Frontend dependency install failed. Run manually: cd frontend; npm install"
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 $backendUrl = "http://127.0.0.1:$ApiPort"

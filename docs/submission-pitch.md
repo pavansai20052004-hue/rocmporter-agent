@@ -8,6 +8,12 @@ ROCmPorter Agent - Local LLM Assistant for CUDA-to-AMD ROCm Migration
 
 ROCmPorter scans CUDA-heavy GitHub repositories, finds AMD ROCm migration blockers, and generates verified single-file review artifacts using a local coding model.
 
+## Live demo
+
+- **Zero-install hosted demo:** <https://rocmporter-agent.vercel.app> — click `Load Sample Scan` for the full report → patch → verify → export walkthrough (works fully offline in the browser).
+- GitHub Pages mirror: <https://pavansai20052004-hue.github.io/AMD_HACKTHON/>
+- To drive the hosted UI from a live local backend, use the `?api=<https-tunnel-url>` override documented in the repository README.
+
 ## Problem
 
 Many AI and GPU projects are written around CUDA, NVCC, NVIDIA containers, and NVIDIA-specific package assumptions. Teams that want to move workloads to AMD ROCm need a practical way to find migration blockers, review code changes, and avoid blindly trusting AI-generated patches.

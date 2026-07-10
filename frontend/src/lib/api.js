@@ -1,3 +1,24 @@
+function sanitizeApiBase(value) {
+  // Only accept absolute http(s) URLs, and refuse plain-http bases on an
+  // https page (the browser would block them as mixed content anyway).
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null
+    }
+    if (url.protocol === 'http:' && window.location.protocol === 'https:' && !isLoopbackHost(url.hostname)) {
+      return null
+    }
+    return `${url.origin}${url.pathname}`.replace(/\/+$/, '')
+  } catch {
+    return null
+  }
+}
+
+function isLoopbackHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+}
+
 function resolveApiBase() {
   // Runtime override so the hosted demo can point at a tunneled local backend:
   //   https://<pages-url>/?api=https://your-tunnel.trycloudflare.com
@@ -7,12 +28,15 @@ function resolveApiBase() {
     if (fromQuery === 'reset') {
       window.localStorage.removeItem('rocmporter-api-base')
     } else if (fromQuery) {
-      const cleaned = fromQuery.replace(/\/+$/, '')
-      window.localStorage.setItem('rocmporter-api-base', cleaned)
-      return cleaned
+      const cleaned = sanitizeApiBase(fromQuery)
+      if (cleaned) {
+        window.localStorage.setItem('rocmporter-api-base', cleaned)
+        return cleaned
+      }
+      // Invalid override: ignore it rather than persisting a broken base.
     } else {
       const stored = window.localStorage.getItem('rocmporter-api-base')
-      if (stored) {
+      if (stored && sanitizeApiBase(stored)) {
         return stored
       }
     }
@@ -42,7 +66,13 @@ async function request(path, options = {}) {
       const data = await response.json()
       message = formatApiError(data.detail ?? data.message ?? message)
     } catch {
-      message = response.statusText || message
+      // No JSON body: on a static host (Vercel/Pages) or a dead proxy the
+      // backend routes return bare 404/5xx — surface the friendly offline
+      // guidance instead of raw statusText like "Bad Gateway".
+      message =
+        response.status === 404 || response.status >= 500
+          ? formatNetworkError(path, null)
+          : response.statusText || message
     }
     throw new Error(message)
   }

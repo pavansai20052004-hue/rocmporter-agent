@@ -12,3 +12,4 @@ playwright-report/
 *.pyc
 .env
 backend/.env
+.claude/

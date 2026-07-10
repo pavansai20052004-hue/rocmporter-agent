@@ -62,14 +62,17 @@ test('home screen renders without runtime errors', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'ROCmPorter Agent' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Analyze Repository' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'extension-cpp' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Export Report' })).toBeDisabled()
   await expect(page.getByText('Benchmark Proof')).toBeVisible()
   await expect(page.getByRole('heading', { name: '3 export-ready review artifacts' })).toBeVisible()
   await expect(page.getByText('submission-proof-v2')).toBeVisible()
   await expect(page.getByText('Patch Model')).toBeVisible()
   await expect(page.getByText('No cloud LLM API')).toBeVisible()
-  await expect(page.getByText('Patch Workspace')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Export-gated review artifact' })).toBeVisible()
+  // Pre-report the right panel collapses to a single zero-state hero.
+  await expect(
+    page.getByRole('heading', { name: 'Scan any CUDA repository. Get an evidence-backed migration report.' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Export Report' })).toHaveCount(0)
+  await expect(page.getByText('Patch Workspace')).toHaveCount(0)
   expect(messages).toEqual([])
 })
 
@@ -88,7 +91,7 @@ test('sample scan demo flow loads report, patch, export, and review states', asy
 
   await page.goto('/', { waitUntil: 'networkidle' })
 
-  await page.getByRole('button', { name: 'Load Sample Scan' }).click()
+  await page.getByRole('button', { name: 'Load Sample Scan' }).first().click()
   await expect(page.getByRole('heading', { name: 'extension-cpp' })).toBeVisible()
   await expect(page.getByText('Executive Summary')).toBeVisible()
   await expect(page.getByText(/scores 54\/100 for ROCm portability/)).toBeVisible()
