@@ -1,6 +1,34 @@
+<div align="center">
+
 # ROCmPorter Agent
 
-ROCmPorter Agent is a local-first hackathon product that scans a GitHub repository for CUDA and NVIDIA-specific assumptions, then produces an AMD ROCm readiness report with evidence, risk level, next steps, export bundles, review-scored patch artifacts, and GitHub PR review outputs. Current verified benchmark artifacts are export-ready review bundles, not apply-ready migrations. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true`.
+**Point it at any CUDA repo. Get an AMD ROCm readiness report — with evidence, risk scores, and verified patch suggestions.**
+
+Local-first · No cloud GPU required · Powered by FastAPI + React + Ollama
+
+[**🚀 Try the live demo**](https://rocmporter-agent.vercel.app) · [Screenshots](docs/screenshots/README.md) · [How it works](#what-the-mvp-does) · [Run locally](#run-locally)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](backend/requirements.txt)
+[![Node 20+](https://img.shields.io/badge/Node-20%2B-brightgreen.svg)](frontend/package.json)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](https://github.com/pavansai20052004-hue/AMD_HACKTHON/pulls)
+
+<img src="docs/screenshots/02-sample-findings.png" alt="ROCmPorter Agent — evidence-backed CUDA findings with one-click patch generation" width="900">
+
+</div>
+
+## Why this exists
+
+A huge amount of GPU code is locked to CUDA — build scripts that hard-require `nvcc`, `CUDAExtension` in `setup.py`, NVIDIA-only Docker base images, `cupy` imports. Porting it to AMD ROCm today means reading the whole repo by hand.
+
+ROCmPorter Agent automates the first 80% of that work:
+
+1. **Scan** — deterministic static-analysis rules find CUDA/NVIDIA assumptions and cite the exact file and line as evidence.
+2. **Score** — every finding gets a risk level and confidence, rolled up into a ROCm portability score and migration checklist.
+3. **Patch** — a local LLM (via [Ollama](https://ollama.com)) drafts single-file ROCm patch diffs, which are then syntax-checked, semantically risk-scored, and verified with diff replay and artifact hashes before anything can be exported or applied.
+4. **Ship** — export offline HTML/JSON/Markdown reports, GitHub-ready PR review comments, and CI-friendly bundles.
+
+Honesty note: verified benchmark artifacts are **export-ready review bundles, not apply-ready migrations**. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true` — the tool refuses to pretend a patch is safe when it isn't.
 
 ## Live demo (zero install)
 
@@ -239,3 +267,19 @@ A real workflow now lives at [.github/workflows/rocmporter-agent.yml](.github/wo
 - Add an LLM-written executive summary on top of the deterministic findings
 - Add direct web-based patch apply once the CLI rollback flow has enough mileage
 - Add ROCm hardware benchmark capture when free AMD GPU access is available
+
+## Contributing
+
+Issues and PRs are welcome — especially new CUDA-detection rules, ROCm/HIP mapping improvements, and real-world repos where the scanner misses something. Open an issue with a repo link and what you expected, and it becomes a test case.
+
+## License
+
+[MIT](LICENSE) — free to use, fork, and build on.
+
+---
+
+<div align="center">
+
+Built for the AMD hackathon. If ROCmPorter saves you porting time, a ⭐ helps other GPU developers find it.
+
+</div>
