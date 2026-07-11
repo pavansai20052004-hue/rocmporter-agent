@@ -11,7 +11,7 @@ ROCmPorter scans CUDA-heavy GitHub repositories, finds AMD ROCm migration blocke
 ## Live demo
 
 - **Zero-install hosted demo:** <https://rocmporter-agent.vercel.app> — click `Load Sample Scan` for the full report → patch → verify → export walkthrough (works fully offline in the browser).
-- GitHub Pages mirror: <https://pavansai20052004-hue.github.io/AMD_HACKTHON/>
+- GitHub Pages mirror: <https://pavansai20052004-hue.github.io/rocmporter-agent/>
 - To drive the hosted UI from a live local backend, use the `?api=<https-tunnel-url>` override documented in the repository README.
 
 ## Problem

@@ -6,19 +6,7 @@ Everything needed to launch this project publicly, in order. Do Phase 1 today; d
 
 ## Phase 1 — Make the repo findable (15 minutes, do first)
 
-Right now the GitHub repo has **no description, no topics, no homepage, and no license shown**. Nobody can find it by searching, and visitors who do land on it see an anonymous hackathon folder. Fix with:
-
-```powershell
-gh repo edit pavansai20052004-hue/AMD_HACKTHON `
-  --description "Scan any GitHub repo for CUDA/NVIDIA lock-in and get an AMD ROCm readiness report with evidence, risk scores, and verified patch suggestions. Local-first, powered by Ollama." `
-  --homepage "https://rocmporter-agent.vercel.app"
-
-gh repo edit pavansai20052004-hue/AMD_HACKTHON `
-  --add-topic rocm --add-topic cuda --add-topic amd --add-topic gpu `
-  --add-topic hip --add-topic code-migration --add-topic developer-tools `
-  --add-topic static-analysis --add-topic ollama --add-topic llm `
-  --add-topic fastapi --add-topic react
-```
+> **Status: DONE (2026-07-11).** Description, homepage, 12 topics, MIT license, and the rename to `rocmporter-agent` are all applied. The remaining manual items are the two web-UI steps below.
 
 Then in the GitHub web UI:
 
@@ -26,17 +14,9 @@ Then in the GitHub web UI:
 2. **Your profile → Customize pins** — pin this repo so it is the first thing visitors see.
 3. Commit and push the new `LICENSE` and README so the license badge and hero image go live.
 
-### Strongly consider renaming the repo
+### Repo rename — DONE
 
-`AMD_HACKTHON` (with the typo) tells nobody what the project does. `rocmporter-agent` matches your Vercel domain and is searchable. GitHub auto-redirects the old URL and git remotes after a rename.
-
-```powershell
-gh repo rename rocmporter-agent -R pavansai20052004-hue/AMD_HACKTHON
-```
-
-**Caveats before renaming:**
-- The GitHub Pages mirror URL changes to `.../rocmporter-agent/` — update the README link after.
-- If the hackathon submission portal has the old URL, either update the submission or wait until judging is over. The redirect means old links still work, but check the hackathon rules first.
+The repo is now `pavansai20052004-hue/rocmporter-agent`. GitHub auto-redirects the old `AMD_HACKTHON` URL and git remotes, but the **GitHub Pages mirror URL does not redirect** — it is now `https://pavansai20052004-hue.github.io/rocmporter-agent/`. If the hackathon submission portal lists the old Pages URL, update it there.
 
 ---
 
@@ -85,7 +65,7 @@ First comment (post immediately after submitting, from your account):
 >
 > 3/ 100% local-first: FastAPI + React + Ollama. No cloud GPU, no API keys needed. Try the live sample demo: rocmporter-agent.vercel.app
 >
-> 4/ Built for the AMD hackathon, MIT-licensed, and I want it to get better: if it misses CUDA usage in your repo, file an issue — every miss becomes a test case. ⭐ github.com/pavansai20052004-hue/AMD_HACKTHON
+> 4/ Built for the AMD hackathon, MIT-licensed, and I want it to get better: if it misses CUDA usage in your repo, file an issue — every miss becomes a test case. ⭐ github.com/pavansai20052004-hue/rocmporter-agent
 
 Tag `@AMD` / ROCm-related accounts only if the content genuinely concerns them (it does here). Use hashtags sparingly: #ROCm #CUDA #opensource.
 

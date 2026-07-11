@@ -11,7 +11,7 @@ Local-first · No cloud GPU required · Powered by FastAPI + React + Ollama
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](backend/requirements.txt)
 [![Node 20+](https://img.shields.io/badge/Node-20%2B-brightgreen.svg)](frontend/package.json)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](https://github.com/pavansai20052004-hue/AMD_HACKTHON/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](https://github.com/pavansai20052004-hue/rocmporter-agent/pulls)
 
 <img src="docs/screenshots/02-sample-findings.png" alt="ROCmPorter Agent — evidence-backed CUDA findings with one-click patch generation" width="900">
 
@@ -33,7 +33,7 @@ Honesty note: verified benchmark artifacts are **export-ready review bundles, no
 ## Live demo (zero install)
 
 - **Vercel (primary):** <https://rocmporter-agent.vercel.app>
-- GitHub Pages (mirror): <https://pavansai20052004-hue.github.io/AMD_HACKTHON/>
+- GitHub Pages (mirror): <https://pavansai20052004-hue.github.io/rocmporter-agent/>
 
 The hosted build runs in **sample mode** by default — click `Load Sample Scan` to walk the full report → patch → verify → export flow entirely offline. To drive the hosted UI from a real local backend, start the backend, expose it over HTTPS (for example `cloudflared tunnel --url http://127.0.0.1:8000`), add the hosted origin to `APP_CORS_ORIGINS` in `backend/.env`, then open:
 
@@ -74,7 +74,7 @@ No time to install? Use the [hosted demo](https://rocmporter-agent.vercel.app) i
 Create portal uploads from Git, not from the whole desktop folder. The working directory can contain ignored local artifacts such as `work/`, `frontend/node_modules/`, `backend/.venv/`, and Playwright output.
 
 ```powershell
-git archive --format zip HEAD -o AMD_HACKTHON-submission.zip
+git archive --format zip HEAD -o rocmporter-agent-submission.zip
 ```
 
 ## Stack
