@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { startCheckout } from './lib/billing'
 import {
   applyPatch,
   createExport,
@@ -1813,6 +1814,7 @@ function App() {
 
 const PRICING_TIERS = [
   {
+    plan: 'free',
     name: 'Free',
     price: '$0',
     cadence: 'forever',
@@ -1824,10 +1826,10 @@ const PRICING_TIERS = [
       'Offline HTML / JSON / Markdown export',
     ],
     cta: 'Start scanning',
-    href: '#workspace',
     highlighted: false,
   },
   {
+    plan: 'pro',
     name: 'Pro',
     price: '$29',
     cadence: 'per month',
@@ -1840,10 +1842,10 @@ const PRICING_TIERS = [
       'Private repository scanning (PAT)',
     ],
     cta: 'Upgrade to Pro',
-    href: '#pricing',
     highlighted: true,
   },
   {
+    plan: 'team',
     name: 'Team',
     price: 'Custom',
     cadence: 'contact us',
@@ -1856,12 +1858,41 @@ const PRICING_TIERS = [
       'Priority support',
     ],
     cta: 'Talk to us',
-    href: 'mailto:sales@rocmporter.app',
     highlighted: false,
   },
 ]
 
 function PricingSection() {
+  const { user, accessToken } = useAuth()
+  const navigate = useNavigate()
+  const [checkoutError, setCheckoutError] = useState('')
+  const [busyPlan, setBusyPlan] = useState('')
+
+  async function handlePlan(tier) {
+    setCheckoutError('')
+    if (tier.plan === 'free') {
+      const el = document.getElementById('workspace')
+      if (el) el.scrollIntoView({ behavior: 'smooth' })
+      return
+    }
+    if (tier.plan === 'team') {
+      window.location.href = 'mailto:sales@rocmporter.app'
+      return
+    }
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    try {
+      setBusyPlan(tier.plan)
+      await startCheckout(tier.plan, accessToken)
+    } catch (err) {
+      setCheckoutError(err.message)
+    } finally {
+      setBusyPlan('')
+    }
+  }
+
   return (
     <section id="pricing" className="pricing">
       <div className="pricing-head">
@@ -1872,6 +1903,7 @@ function PricingSection() {
           and GitHub review automation.
         </p>
       </div>
+      {checkoutError ? <p className="error-banner pricing-error">{checkoutError}</p> : null}
       <div className="pricing-grid">
         {PRICING_TIERS.map((tier) => (
           <article key={tier.name} className={`price-card${tier.highlighted ? ' featured' : ''}`}>
@@ -1887,9 +1919,14 @@ function PricingSection() {
                 <li key={feature}>{feature}</li>
               ))}
             </ul>
-            <a className={tier.highlighted ? 'primary-button price-cta' : 'secondary-button price-cta'} href={tier.href}>
-              {tier.cta}
-            </a>
+            <button
+              type="button"
+              className={tier.highlighted ? 'primary-button price-cta' : 'secondary-button price-cta'}
+              onClick={() => handlePlan(tier)}
+              disabled={busyPlan === tier.plan}
+            >
+              {busyPlan === tier.plan ? 'Redirecting…' : tier.cta}
+            </button>
           </article>
         ))}
       </div>
