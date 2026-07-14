@@ -9,6 +9,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from . import auth_service
 from .billing_service import apply_subscription_event, create_checkout_session, verify_and_parse_webhook
 
 from .apply_service import apply_service
@@ -64,6 +65,19 @@ def healthcheck() -> dict[str, str]:
     return {"status": "ok", "service": "rocmporter-agent", "version": app.version}
 
 
+def require_pro_plan(authorization: str | None) -> None:
+    """Backstop enforcement for paid features. No-op unless SUPABASE_JWT_SECRET
+    is configured, so scanning and local dev stay open."""
+    if not auth_service.enforcement_enabled():
+        return
+    claims = auth_service.verify_token(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Please sign in to generate AI patches.")
+    plan = auth_service.get_user_plan(claims.get("sub"))
+    if not auth_service.is_pro_plan(plan):
+        raise HTTPException(status_code=402, detail="AI patch generation requires a Pro plan. Upgrade to continue.")
+
+
 @app.post("/api/scans", response_model=ScanStatus)
 def create_scan(payload: ScanRequest) -> ScanStatus:
     try:
@@ -112,7 +126,12 @@ def warm_ollama_model(payload: OllamaWarmRequest) -> OllamaHealthStatus:
 
 
 @app.post("/api/scans/{scan_id}/patches", response_model=PatchResult)
-def create_patch(scan_id: str, payload: PatchRequest) -> PatchResult:
+def create_patch(
+    scan_id: str,
+    payload: PatchRequest,
+    authorization: str | None = Header(default=None),
+) -> PatchResult:
+    require_pro_plan(authorization)
     try:
         return patch_service.create_patch(scan_id, payload.findingId, payload.evidencePath, payload.model)
     except ValueError as exc:
@@ -135,7 +154,12 @@ def get_patch(scan_id: str, patch_id: str) -> PatchResult:
 
 
 @app.post("/api/scans/{scan_id}/patches/{patch_id}/repair", response_model=PatchResult)
-def repair_patch(scan_id: str, patch_id: str) -> PatchResult:
+def repair_patch(
+    scan_id: str,
+    patch_id: str,
+    authorization: str | None = Header(default=None),
+) -> PatchResult:
+    require_pro_plan(authorization)
     try:
         return patch_service.repair_patch(scan_id, patch_id)
     except ValueError as exc:

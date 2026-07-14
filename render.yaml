@@ -44,3 +44,7 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      # JWT secret verifies the user's login token so paid features (AI patches)
+      # can't be called without a valid Pro session. Supabase -> Settings -> API -> JWT Secret.
+      - key: SUPABASE_JWT_SECRET
+        sync: false

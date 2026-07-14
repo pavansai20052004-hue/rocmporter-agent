@@ -1,3 +1,18 @@
+import { supabase } from './supabase'
+
+// Attach the signed-in user's Supabase access token so the backend can verify
+// identity and plan (e.g. gating AI patch generation to Pro).
+async function authHeaders() {
+  if (!supabase) return {}
+  try {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
 function sanitizeApiBase(value) {
   // Only accept absolute http(s) URLs, and refuse plain-http bases on an
   // https page (the browser would block them as mixed content anyway).
@@ -48,10 +63,12 @@ const API_BASE = resolveApiBase()
 
 async function request(path, options = {}) {
   let response
+  const auth = await authHeaders()
   try {
     response = await fetch(`${API_BASE}${path}`, {
       headers: {
         'Content-Type': 'application/json',
+        ...auth,
         ...(options.headers ?? {}),
       },
       ...options,
