@@ -20,13 +20,12 @@ export function AuthProvider({ children }) {
       return undefined
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
-
+    // onAuthStateChange fires an INITIAL_SESSION event *after* Supabase has
+    // parsed any OAuth token/code from the URL, so it's the reliable source of
+    // truth for the initial load. getSession() is a fallback.
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession)
+      setLoading(false)
       if (nextSession?.provider_token) {
         setProviderToken(nextSession.provider_token)
         try {
@@ -43,6 +42,13 @@ export function AuthProvider({ children }) {
           /* ignore storage errors */
         }
       }
+    })
+
+    // Safety fallback: if no auth event has fired within a moment, stop showing
+    // the loading state so the app never hangs.
+    supabase.auth.getSession().then(({ data }) => {
+      setSession((current) => current ?? data.session)
+      setLoading(false)
     })
 
     return () => listener.subscription.unsubscribe()
