@@ -32,3 +32,10 @@ services:
       # ---- Optional: private GitHub repo scanning ----
       - key: GITHUB_PAT
         sync: false
+      # ---- Stripe billing (paste values in the Render dashboard) ----
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

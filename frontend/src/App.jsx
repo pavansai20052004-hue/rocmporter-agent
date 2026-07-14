@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from './context/AuthContext'
 import {
   applyPatch,
   createExport,
@@ -89,7 +91,14 @@ function warningTitle(warning) {
 }
 
 function App() {
-  const [repoUrl, setRepoUrl] = useState('https://github.com/pytorch/extension-cpp')
+  const { user, signOut } = useAuth()
+  const [repoUrl, setRepoUrl] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const preset = new URLSearchParams(window.location.search).get('repo')
+      if (preset) return preset
+    }
+    return 'https://github.com/pytorch/extension-cpp'
+  })
   const [scan, setScan] = useState(null)
   const [report, setReport] = useState(null)
   const [error, setError] = useState('')
@@ -858,7 +867,15 @@ function App() {
         <div className="topbar-actions">
           <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
           <div className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</div>
-          <a className="topbar-pricing-link" href="#pricing">View pricing →</a>
+          <div className="topbar-links">
+            {user ? <Link className="topbar-pricing-link" to="/repos">My repos</Link> : null}
+            <a className="topbar-pricing-link" href="#pricing">Pricing</a>
+            {user ? (
+              <button type="button" className="topbar-linkbtn" onClick={signOut}>Sign out</button>
+            ) : (
+              <Link className="topbar-pricing-link" to="/login">Sign in</Link>
+            )}
+          </div>
         </div>
       </header>
 

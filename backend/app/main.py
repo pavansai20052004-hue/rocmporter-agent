@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import json
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+
+from .billing_service import create_checkout_session, verify_and_parse_webhook
 
 from .apply_service import apply_service
 from .env_config import load_local_env
 from .export_service import export_service
 from .github_review_service import github_review_service
 from .models import (
+    BillingCheckoutRequest,
     ExportRequest,
     ExportResult,
     GitHubReviewRequest,
@@ -193,6 +199,61 @@ def create_github_review(scan_id: str, payload: GitHubReviewRequest) -> GitHubRe
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _identity_from_bearer(authorization: str | None) -> tuple[str | None, str | None]:
+    """Best-effort read of email + user id from a Supabase JWT for checkout
+    prefill. Not a security check — Stripe handles payment auth."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None, None
+    token = authorization.split(" ", 1)[1].strip()
+    segments = token.split(".")
+    if len(segments) < 2:
+        return None, None
+    payload_segment = segments[1]
+    padding = "=" * (-len(payload_segment) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(payload_segment + padding)
+        claims = json.loads(decoded.decode("utf-8"))
+    except (binascii.Error, ValueError):
+        return None, None
+    return claims.get("email"), claims.get("sub")
+
+
+@app.post("/api/billing/checkout")
+def billing_checkout(
+    payload: BillingCheckoutRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, str]:
+    email, user_id = _identity_from_bearer(authorization)
+    try:
+        url = create_checkout_session(
+            payload.plan,
+            payload.successUrl,
+            payload.cancelUrl,
+            customer_email=email,
+            client_reference_id=user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"url": url}
+
+
+@app.post("/api/billing/webhook")
+async def billing_webhook(
+    request: Request,
+    stripe_signature: str | None = Header(default=None, alias="Stripe-Signature"),
+) -> dict[str, object]:
+    body = await request.body()
+    try:
+        event = verify_and_parse_webhook(body, stripe_signature)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Subscription lifecycle events land here. Plan persistence to the database
+    # can be wired in as the product grows; we acknowledge receipt for now.
+    return {"received": True, "type": event.get("type")}
 
 
 @app.get("/api/scans/{scan_id}/exports/{export_id}/download/{relative_path:path}")
