@@ -1,10 +1,12 @@
-import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const { signInWithGoogle, signInWithGitHub, user, isConfigured } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [authError] = useState(() => searchParams.get('auth_error') === '1')
 
   useEffect(() => {
     if (user) navigate('/app', { replace: true })
@@ -28,6 +30,12 @@ export default function Login() {
 
         <h1>Welcome back</h1>
         <p className="auth-sub">Sign in to scan your repositories and generate ROCm patches.</p>
+
+        {authError ? (
+          <div className="error-banner auth-config-note">
+            Sign-in didn’t complete. Please try again — if it keeps failing, the provider credentials may need a re-check.
+          </div>
+        ) : null}
 
         {!isConfigured ? (
           <div className="warning-banner low auth-config-note">
