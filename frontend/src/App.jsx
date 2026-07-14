@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { startCheckout } from './lib/billing'
+import { saveScan } from './lib/scans'
 import {
   applyPatch,
   createExport,
@@ -136,7 +137,16 @@ function App() {
   const [toast, setToast] = useState(null)
   const verifyingPatchIdRef = useRef(null)
   const patchPanelRef = useRef(null)
+  const savedScanRef = useRef(null)
   const patchInFlight = patchJob?.status === 'queued' || patchJob?.status === 'running'
+
+  // Save each completed scan to the signed-in user's history (once per scan).
+  useEffect(() => {
+    if (!report || !user || isDemoMode || !scan?.scanId) return
+    if (savedScanRef.current === scan.scanId) return
+    savedScanRef.current = scan.scanId
+    saveScan(user.id, report, scan.repoUrl ?? repoUrl)
+  }, [report, user, isDemoMode, scan, repoUrl])
 
   const applyOllamaState = useCallback(
     (nextStatus) => {
@@ -877,9 +887,7 @@ function App() {
           <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
           <div className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</div>
           <div className="topbar-links">
-            {user ? (
-              <span className={`plan-badge${isPro ? ' pro' : ''}`}>{isPro ? (plan === 'team' ? 'Team' : 'Pro') : 'Free'}</span>
-            ) : null}
+            {user ? <Link className="topbar-pricing-link" to="/dashboard">Dashboard</Link> : null}
             {user ? <Link className="topbar-pricing-link" to="/repos">My repos</Link> : null}
             {user && !isPro ? (
               <a className="topbar-pricing-link" href="#pricing">Upgrade</a>
@@ -887,7 +895,7 @@ function App() {
               <a className="topbar-pricing-link" href="#pricing">Pricing</a>
             )}
             {user ? (
-              <button type="button" className="topbar-linkbtn" onClick={signOut}>Sign out</button>
+              <UserChip user={user} plan={plan} isPro={isPro} onSignOut={signOut} />
             ) : (
               <Link className="topbar-pricing-link" to="/login">Sign in</Link>
             )}
@@ -1951,6 +1959,24 @@ function PricingSection() {
 
 function EmptyState({ text }) {
   return <p className="empty-state">{text}</p>
+}
+
+function UserChip({ user, plan, isPro, onSignOut }) {
+  const meta = user.user_metadata || {}
+  const avatar = meta.avatar_url || meta.picture || null
+  const name = meta.full_name || meta.name || meta.user_name || user.email || 'Account'
+  return (
+    <div className="user-chip">
+      {avatar ? (
+        <img className="user-avatar" src={avatar} alt="" referrerPolicy="no-referrer" />
+      ) : (
+        <span className="user-avatar user-avatar-fallback">{name.charAt(0).toUpperCase()}</span>
+      )}
+      <span className="user-name" title={name}>{name}</span>
+      <span className={`plan-badge${isPro ? ' pro' : ''}`}>{isPro ? (plan === 'team' ? 'Team' : 'Pro') : 'Free'}</span>
+      <button type="button" className="topbar-linkbtn" onClick={onSignOut}>Sign out</button>
+    </div>
+  )
 }
 
 function SamplePreviewNote({ text }) {

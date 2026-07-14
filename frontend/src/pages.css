@@ -458,3 +458,81 @@
   background: linear-gradient(135deg, var(--accent), var(--accent-bright));
   border-color: transparent;
 }
+
+/* User profile chip in the app top bar */
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 8px 4px 4px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--page-border-strong);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dashboard score / risk pills */
+.dash-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.score-pill {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.score-pill.risk-low,
+.repo-row-meta .risk-low {
+  color: var(--good);
+  background: var(--good-soft);
+}
+
+.score-pill.risk-med,
+.repo-row-meta .risk-med {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.score-pill.risk-high,
+.repo-row-meta .risk-high {
+  color: var(--critical);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+@media (max-width: 640px) {
+  .user-name { display: none; }
+}
