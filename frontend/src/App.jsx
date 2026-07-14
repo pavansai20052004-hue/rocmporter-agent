@@ -858,12 +858,13 @@ function App() {
         <div className="topbar-actions">
           <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
           <div className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</div>
+          <a className="topbar-pricing-link" href="#pricing">View pricing →</a>
         </div>
       </header>
 
       <BenchmarkProofPanel proof={benchmarkProof} />
 
-      <main className={workspaceClassName}>
+      <main id="workspace" className={workspaceClassName}>
         <aside className="control-panel">
           <section className="panel-card hero-panel">
             <p className="section-label">Repository Intake</p>
@@ -929,7 +930,7 @@ function App() {
             <div className="section-head compact-head">
               <div>
                 <p className="section-label">Patch Model</p>
-                <h3>Local Ollama target</h3>
+                <h3>{ollamaStatus?.version?.includes('hosted') ? 'Hosted AI model' : 'AI patch model'}</h3>
               </div>
               <span className="support-chip">single-file</span>
             </div>
@@ -1777,7 +1778,105 @@ function App() {
           ) : null}
         </section>
       </main>
+
+      <PricingSection />
+
+      <footer className="site-footer">
+        <div className="site-footer-brand">
+          <strong>ROCmPorter Agent</strong>
+          <span>Evidence-driven CUDA → AMD ROCm migration reports and reviewable patches.</span>
+        </div>
+        <span className="site-footer-note">
+          Scans run on your backend. AI patches use your configured model provider.
+        </span>
+      </footer>
     </div>
+  )
+}
+
+const PRICING_TIERS = [
+  {
+    name: 'Free',
+    price: '$0',
+    cadence: 'forever',
+    tagline: 'For trying it on public repos.',
+    features: [
+      'Unlimited public GitHub repo scans',
+      'Full ROCm readiness score & findings',
+      'Migration checklist & GPU signal list',
+      'Offline HTML / JSON / Markdown export',
+    ],
+    cta: 'Start scanning',
+    href: '#workspace',
+    highlighted: false,
+  },
+  {
+    name: 'Pro',
+    price: '$29',
+    cadence: 'per month',
+    tagline: 'For engineers shipping the migration.',
+    features: [
+      'Everything in Free',
+      'AI-generated single-file ROCm patches',
+      'Patch verification & safe apply / rollback',
+      'GitHub-ready PR review artifacts',
+      'Private repository scanning (PAT)',
+    ],
+    cta: 'Upgrade to Pro',
+    href: '#pricing',
+    highlighted: true,
+  },
+  {
+    name: 'Team',
+    price: 'Custom',
+    cadence: 'contact us',
+    tagline: 'For teams porting many repos.',
+    features: [
+      'Everything in Pro',
+      'CI/CD scan + patch pipelines',
+      'AMD Developer Cloud ROCm validation',
+      'Shared audit bundles & seats',
+      'Priority support',
+    ],
+    cta: 'Talk to us',
+    href: 'mailto:sales@rocmporter.app',
+    highlighted: false,
+  },
+]
+
+function PricingSection() {
+  return (
+    <section id="pricing" className="pricing">
+      <div className="pricing-head">
+        <p className="section-label">Pricing</p>
+        <h2>Start free. Pay when you ship patches.</h2>
+        <p className="pricing-sub">
+          Scanning real repositories is always free. Paid plans unlock AI patch generation, verified apply,
+          and GitHub review automation.
+        </p>
+      </div>
+      <div className="pricing-grid">
+        {PRICING_TIERS.map((tier) => (
+          <article key={tier.name} className={`price-card${tier.highlighted ? ' featured' : ''}`}>
+            {tier.highlighted ? <span className="price-badge">Most popular</span> : null}
+            <h3>{tier.name}</h3>
+            <div className="price-amount">
+              <span className="price-value">{tier.price}</span>
+              <span className="price-cadence">{tier.cadence}</span>
+            </div>
+            <p className="price-tagline">{tier.tagline}</p>
+            <ul className="price-features">
+              {tier.features.map((feature) => (
+                <li key={feature}>{feature}</li>
+              ))}
+            </ul>
+            <a className={tier.highlighted ? 'primary-button price-cta' : 'secondary-button price-cta'} href={tier.href}>
+              {tier.cta}
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
   )
 }
 

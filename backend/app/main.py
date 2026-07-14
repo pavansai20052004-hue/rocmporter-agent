@@ -27,7 +27,7 @@ from .models import (
     ScanRequest,
     ScanStatus,
 )
-from .ollama_service import get_health_status, list_models, warm_model
+from .llm_service import get_health_status, list_models, warm_model
 from .patch_service import patch_service
 from .service import scan_service
 
@@ -38,7 +38,8 @@ app = FastAPI(title="ROCmPorter Agent API", version="0.1.0")
 cors_origins = os.getenv("APP_CORS_ORIGINS", "http://localhost:5178,http://127.0.0.1:5178")
 cors_origin_regex = os.getenv(
     "APP_CORS_ALLOW_ORIGIN_REGEX",
-    r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$",
+    r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+    r"|https://([a-z0-9-]+\.)*vercel\.app$",
 )
 allow_origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 

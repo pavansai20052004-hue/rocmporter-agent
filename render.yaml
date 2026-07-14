@@ -1,0 +1,34 @@
+# Render Blueprint for the ROCmPorter Agent backend.
+# Deploy: push to GitHub, then in Render click "New +" -> "Blueprint" and pick this repo.
+# Render runs FastAPI + git natively, so the real repository scanner works here.
+services:
+  - type: web
+    name: rocmporter-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # ---- AI patch generation (hosted model) ----
+      # Provider: openai | groq | openrouter | together | deepseek | anthropic
+      - key: LLM_PROVIDER
+        value: openai
+      # Paste your API key in the Render dashboard (Environment tab). Never commit it.
+      - key: LLM_API_KEY
+        sync: false
+      # Optional: override the model. Defaults per provider are sensible.
+      - key: LLM_MODEL
+        sync: false
+      # ---- CORS ----
+      # After deploying the frontend, set this to your exact Vercel URL for tighter security.
+      # *.vercel.app is already allowed by default.
+      - key: APP_CORS_ORIGINS
+        value: http://localhost:5173,http://127.0.0.1:5173
+      # ---- Optional: private GitHub repo scanning ----
+      - key: GITHUB_PAT
+        sync: false

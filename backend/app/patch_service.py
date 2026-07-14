@@ -26,7 +26,11 @@ from .models import (
     PatchVerificationReceipt,
     PatchWarning,
 )
-from .ollama_service import DEFAULT_OLLAMA_MODEL, OLLAMA_REQUEST_TIMEOUT_SECONDS, generate_structured, resolve_model_name
+from .llm_service import REQUEST_TIMEOUT_SECONDS as OLLAMA_REQUEST_TIMEOUT_SECONDS
+from .llm_service import default_model as _default_model
+from .llm_service import generate_structured, resolve_model_name
+
+DEFAULT_OLLAMA_MODEL = _default_model()
 from .service import REPO_ROOT, SCAN_ROOT, scan_service
 
 
