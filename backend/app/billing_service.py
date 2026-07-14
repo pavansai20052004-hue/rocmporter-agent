@@ -106,6 +106,70 @@ def create_checkout_session(
     return url
 
 
+def _supabase_configured() -> bool:
+    return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
+
+
+def _patch_profile(filter_query: str, fields: dict) -> None:
+    """Update the profiles table via the Supabase REST API using the service
+    role key (bypasses RLS). No-op if Supabase isn't configured."""
+    if not _supabase_configured():
+        return
+    base = os.getenv("SUPABASE_URL").rstrip("/")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY").strip()
+    url = f"{base}/rest/v1/profiles?{filter_query}"
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(fields).encode("utf-8"),
+        headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        },
+        method="PATCH",
+    )
+    try:
+        urllib.request.urlopen(request, timeout=20)
+    except urllib.error.HTTPError as exc:  # pragma: no cover - best effort
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:
+            detail = exc.reason
+        raise RuntimeError(f"Supabase profile update failed (HTTP {exc.code}): {detail[:200]}") from exc
+
+
+def apply_subscription_event(event: dict) -> str | None:
+    """Map a Stripe event to a plan change in the database. Returns a short
+    status string for logging. Safe to call even if Supabase isn't set up."""
+    etype = event.get("type")
+    obj = event.get("data", {}).get("object", {})
+
+    if etype == "checkout.session.completed":
+        user_id = obj.get("client_reference_id")
+        customer = obj.get("customer")
+        if user_id:
+            fields = {"plan": "pro"}
+            if customer:
+                fields["stripe_customer_id"] = customer
+            _patch_profile(f"id=eq.{user_id}", fields)
+            return f"upgraded {user_id} to pro"
+        return "checkout completed without client_reference_id"
+
+    if etype in ("customer.subscription.deleted", "customer.subscription.updated"):
+        customer = obj.get("customer")
+        status = obj.get("status", "")
+        active = etype == "customer.subscription.updated" and status in ("active", "trialing")
+        plan = "pro" if active else "free"
+        if customer:
+            _patch_profile(f"stripe_customer_id=eq.{customer}", {"plan": plan})
+            return f"set customer {customer} to {plan}"
+        return "subscription event without customer"
+
+    return None
+
+
 def verify_and_parse_webhook(payload: bytes, signature_header: str | None) -> dict:
     """Verify the Stripe-Signature header and return the parsed event.
 

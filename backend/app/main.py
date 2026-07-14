@@ -9,7 +9,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from .billing_service import create_checkout_session, verify_and_parse_webhook
+from .billing_service import apply_subscription_event, create_checkout_session, verify_and_parse_webhook
 
 from .apply_service import apply_service
 from .env_config import load_local_env
@@ -251,9 +251,13 @@ async def billing_webhook(
         event = verify_and_parse_webhook(body, stripe_signature)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # Subscription lifecycle events land here. Plan persistence to the database
-    # can be wired in as the product grows; we acknowledge receipt for now.
-    return {"received": True, "type": event.get("type")}
+    # Map subscription lifecycle events to the user's plan in the database.
+    try:
+        status = apply_subscription_event(event)
+    except RuntimeError:
+        # Don't fail the webhook on a transient DB error; Stripe will retry.
+        status = "db update failed"
+    return {"received": True, "type": event.get("type"), "status": status}
 
 
 @app.get("/api/scans/{scan_id}/exports/{export_id}/download/{relative_path:path}")

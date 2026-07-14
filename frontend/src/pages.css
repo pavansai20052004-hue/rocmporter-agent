@@ -437,3 +437,24 @@
     width: 100%;
   }
 }
+
+/* Plan badge in the app top bar */
+.plan-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--page-border-strong);
+}
+
+.plan-badge.pro {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  border-color: transparent;
+}

@@ -8,6 +8,7 @@ const GH_TOKEN_KEY = 'rocmporter_gh_provider_token'
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [plan, setPlan] = useState('free')
   // GitHub OAuth returns the provider access token only on the initial sign-in
   // event, so we persist it separately to keep listing repos across reloads.
   const [providerToken, setProviderToken] = useState(
@@ -77,13 +78,37 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async () => {
     if (!isSupabaseConfigured) return
     await supabase.auth.signOut()
+    setPlan('free')
   }, [])
+
+  const userId = session?.user?.id ?? null
+
+  const refreshProfile = useCallback(async () => {
+    if (!isSupabaseConfigured || !userId) {
+      setPlan('free')
+      return
+    }
+    const { data } = await supabase.from('profiles').select('plan').eq('id', userId).maybeSingle()
+    setPlan(data?.plan ?? 'free')
+  }, [userId])
+
+  // Load the plan whenever the user changes, and again when the tab regains
+  // focus (e.g. returning from Stripe checkout in another tab).
+  useEffect(() => {
+    refreshProfile()
+    const onFocus = () => refreshProfile()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [refreshProfile])
 
   const value = {
     session,
     user: session?.user ?? null,
     accessToken: session?.access_token ?? null,
     providerToken,
+    plan,
+    isPro: plan === 'pro' || plan === 'team',
+    refreshProfile,
     loading,
     isConfigured: isSupabaseConfigured,
     signInWithGoogle,

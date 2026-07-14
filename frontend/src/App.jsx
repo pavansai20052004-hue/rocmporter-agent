@@ -92,7 +92,7 @@ function warningTitle(warning) {
 }
 
 function App() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, plan, isPro, isConfigured: authConfigured } = useAuth()
   const [repoUrl, setRepoUrl] = useState(() => {
     if (typeof window !== 'undefined') {
       const preset = new URLSearchParams(window.location.search).get('repo')
@@ -502,6 +502,14 @@ function App() {
       return
     }
 
+    // Pro gate: AI patch generation requires a paid plan when auth is enabled.
+    if (authConfigured && user && !isPro) {
+      setPatchError('AI patch generation is a Pro feature. Upgrade to Pro below to unlock it.')
+      const pricing = document.getElementById('pricing')
+      if (pricing) pricing.scrollIntoView({ behavior: 'smooth' })
+      return
+    }
+
     if (!ollamaReadiness.canGenerate) {
       setPatchError(ollamaReadiness.message)
       return
@@ -869,8 +877,15 @@ function App() {
           <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
           <div className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</div>
           <div className="topbar-links">
+            {user ? (
+              <span className={`plan-badge${isPro ? ' pro' : ''}`}>{isPro ? (plan === 'team' ? 'Team' : 'Pro') : 'Free'}</span>
+            ) : null}
             {user ? <Link className="topbar-pricing-link" to="/repos">My repos</Link> : null}
-            <a className="topbar-pricing-link" href="#pricing">Pricing</a>
+            {user && !isPro ? (
+              <a className="topbar-pricing-link" href="#pricing">Upgrade</a>
+            ) : (
+              <a className="topbar-pricing-link" href="#pricing">Pricing</a>
+            )}
             {user ? (
               <button type="button" className="topbar-linkbtn" onClick={signOut}>Sign out</button>
             ) : (
