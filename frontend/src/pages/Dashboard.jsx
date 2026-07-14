@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { listScans } from '../lib/scans'
+import { openPortal } from '../lib/billing'
 
 function riskClass(risk) {
   const r = (risk || '').toLowerCase()
@@ -18,10 +19,24 @@ function scoreClass(score) {
 }
 
 export default function Dashboard() {
-  const { user, plan, isPro, signOut } = useAuth()
+  const { user, accessToken, plan, isPro, signOut } = useAuth()
   const navigate = useNavigate()
   const [scans, setScans] = useState([])
   const [loading, setLoading] = useState(true)
+  const [billingBusy, setBillingBusy] = useState(false)
+  const [billingError, setBillingError] = useState('')
+
+  async function manageBilling() {
+    setBillingError('')
+    try {
+      setBillingBusy(true)
+      await openPortal(accessToken)
+    } catch (err) {
+      setBillingError(err.message)
+    } finally {
+      setBillingBusy(false)
+    }
+  }
 
   const load = useCallback(async () => {
     if (!user) return
@@ -54,6 +69,13 @@ export default function Dashboard() {
         </div>
         <div className="repos-header-actions">
           <span className={`plan-badge${isPro ? ' pro' : ''}`}>{isPro ? (plan === 'team' ? 'Team' : 'Pro') : 'Free'}</span>
+          {isPro ? (
+            <button type="button" className="secondary-button" onClick={manageBilling} disabled={billingBusy}>
+              {billingBusy ? 'Opening…' : 'Manage subscription'}
+            </button>
+          ) : (
+            <a className="secondary-button" href="/#pricing">Upgrade</a>
+          )}
           <Link className="secondary-button" to="/repos">My repos</Link>
           <Link className="secondary-button" to="/app">Scanner</Link>
           <button type="button" className="secondary-button" onClick={signOut}>Sign out</button>
@@ -61,6 +83,7 @@ export default function Dashboard() {
       </header>
 
       <main className="repos-main">
+        {billingError ? <p className="error-banner">{billingError}</p> : null}
         <section className="panel-card">
           <div className="section-head compact-head">
             <div>

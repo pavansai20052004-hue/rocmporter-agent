@@ -67,7 +67,8 @@ export default function Login() {
         </div>
 
         <p className="auth-fineprint">
-          By continuing you agree to our terms. New here? Signing in creates your account automatically.
+          By continuing you agree to our <Link to="/terms">Terms</Link> and{' '}
+          <Link to="/privacy">Privacy Policy</Link>. New here? Signing in creates your account automatically.
         </p>
 
         <Link to="/" className="auth-back">← Back to home</Link>

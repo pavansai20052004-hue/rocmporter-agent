@@ -10,7 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from . import auth_service
-from .billing_service import apply_subscription_event, create_checkout_session, verify_and_parse_webhook
+from .rate_limit import RateLimiter
+from .billing_service import (
+    apply_subscription_event,
+    create_checkout_session,
+    create_portal_session,
+    get_stripe_customer_id,
+    verify_and_parse_webhook,
+)
 
 from .apply_service import apply_service
 from .env_config import load_local_env
@@ -18,6 +25,7 @@ from .export_service import export_service
 from .github_review_service import github_review_service
 from .models import (
     BillingCheckoutRequest,
+    BillingPortalRequest,
     ExportRequest,
     ExportResult,
     GitHubReviewRequest,
@@ -60,6 +68,19 @@ app.add_middleware(
 )
 
 
+scan_limiter = RateLimiter(
+    max_requests=int(os.getenv("SCAN_RATE_LIMIT", "20")),
+    window_seconds=int(os.getenv("SCAN_RATE_WINDOW_SECONDS", "3600")),
+)
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @app.get("/api/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok", "service": "rocmporter-agent", "version": app.version}
@@ -79,7 +100,12 @@ def require_pro_plan(authorization: str | None) -> None:
 
 
 @app.post("/api/scans", response_model=ScanStatus)
-def create_scan(payload: ScanRequest) -> ScanStatus:
+def create_scan(payload: ScanRequest, request: Request) -> ScanStatus:
+    if not scan_limiter.allow(_client_ip(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many scans from your network recently. Please wait a little and try again.",
+        )
     try:
         return scan_service.create_scan(payload.repoUrl)
     except ValueError as exc:
@@ -260,6 +286,24 @@ def billing_checkout(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"url": url}
+
+
+@app.post("/api/billing/portal")
+def billing_portal(
+    payload: BillingPortalRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, str]:
+    claims = auth_service.verify_token(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Please sign in to manage your subscription.")
+    customer_id = get_stripe_customer_id(claims.get("sub"))
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="No active subscription found for this account.")
+    try:
+        url = create_portal_session(customer_id, payload.returnUrl)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"url": url}

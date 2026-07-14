@@ -170,6 +170,55 @@ def apply_subscription_event(event: dict) -> str | None:
     return None
 
 
+def create_portal_session(customer_id: str, return_url: str) -> str:
+    """Create a Stripe Billing Portal session so a customer can manage or cancel
+    their subscription, and return its URL."""
+    form = {"customer": customer_id, "return_url": return_url}
+    data = urllib.parse.urlencode(form).encode("utf-8")
+    request = urllib.request.Request(
+        f"{STRIPE_API}/billing_portal/sessions",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {_secret_key()}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:  # pragma: no cover
+            detail = exc.reason
+        raise RuntimeError(f"Stripe portal failed (HTTP {exc.code}): {detail[:300]}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Could not reach Stripe: {getattr(exc, 'reason', exc)}") from exc
+    url = payload.get("url")
+    if not url:
+        raise RuntimeError("Stripe did not return a portal URL.")
+    return url
+
+
+def get_stripe_customer_id(user_id: str | None) -> str | None:
+    if not (_supabase_configured() and user_id):
+        return None
+    base = os.getenv("SUPABASE_URL").rstrip("/")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY").strip()
+    url = f"{base}/rest/v1/profiles?id=eq.{user_id}&select=stripe_customer_id"
+    request = urllib.request.Request(url, headers={"apikey": key, "Authorization": f"Bearer {key}"})
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            rows = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, json.JSONDecodeError):
+        return None
+    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+        return rows[0].get("stripe_customer_id")
+    return None
+
+
 def verify_and_parse_webhook(payload: bytes, signature_header: str | None) -> dict:
     """Verify the Stripe-Signature header and return the parsed event.
 

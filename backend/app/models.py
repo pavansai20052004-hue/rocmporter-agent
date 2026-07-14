@@ -232,6 +232,10 @@ class BillingCheckoutRequest(BaseModel):
     cancelUrl: str
 
 
+class BillingPortalRequest(BaseModel):
+    returnUrl: str
+
+
 class ExportRequest(BaseModel):
     patchId: str | None = None
     formats: list[ExportFormat] = Field(default_factory=lambda: ["json", "markdown", "html", "zip", "github"])

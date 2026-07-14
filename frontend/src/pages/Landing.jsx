@@ -186,7 +186,9 @@ export default function Landing() {
           <strong>ROCmPorter Agent</strong>
           <span>Evidence-driven CUDA → AMD ROCm migration reports and reviewable patches.</span>
         </div>
-        <span className="site-footer-note">© 2026 ROCmPorter. Built for the AMD hackathon.</span>
+        <span className="site-footer-note">
+          <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> · © 2026 ROCmPorter
+        </span>
       </footer>
     </div>
   )
