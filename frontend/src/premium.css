@@ -937,3 +937,108 @@
   .workspace-has-report .report-panel > *,
   .workspace-has-report .finding-item { animation: none !important; }
 }
+
+/* ═══ God-level report layout: magazine flow, zero voids ═══════════════ */
+
+/* Report header becomes a hero band with a glow halo behind the score. */
+.workspace-has-report .report-header {
+  position: relative;
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--accent-glow);
+  background:
+    radial-gradient(70% 140% at 85% 20%, rgba(227, 24, 55, 0.16), transparent 60%),
+    radial-gradient(40% 120% at 10% 80%, rgba(0, 195, 184, 0.08), transparent 60%),
+    var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.workspace-has-report .report-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(80% 90% at 80% 30%, black 20%, transparent 75%);
+}
+
+/* Magazine flow: hero content full-width, supports in pairs. */
+@media (min-width: 1025px) {
+  .report-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: var(--space-5);
+  }
+  .report-grid .findings-card {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .report-grid .patch-panel {
+    grid-column: 1 / -1;
+  }
+  /* Evidence cards inside full-width findings: two per row. */
+  .evidence-stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+  .evidence-card { min-width: 0; }
+}
+
+/* Findings: severity spine + lift. */
+.finding-item {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transition: transform 0.2s var(--ease-out), border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+}
+.finding-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.finding-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--text-faint);
+}
+.finding-item.critical::before,
+.finding-item.high::before { background: linear-gradient(180deg, var(--accent-bright), var(--accent)); box-shadow: 0 0 12px var(--accent-glow); }
+.finding-item.medium::before { background: linear-gradient(180deg, var(--warn), #d99b0b); }
+.finding-item.low::before { background: linear-gradient(180deg, var(--good), #22a04a); }
+
+/* Evidence cards: crisper, code-forward. */
+.evidence-card {
+  transition: border-color 0.25s var(--ease-out), background 0.25s var(--ease-out);
+}
+.evidence-card:hover {
+  border-color: var(--accent-glow);
+  background: rgba(227, 24, 55, 0.04);
+}
+.snippet-block {
+  border-left: 2px solid var(--accent-glow);
+}
+
+/* Supporting pair cards get subtle icon-tone headers via top border. */
+.report-grid > .panel-card:not(.findings-card):not(.patch-panel) {
+  position: relative;
+  overflow: hidden;
+}
+.report-grid > .panel-card:not(.findings-card):not(.patch-panel)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-glow), transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finding-item, .evidence-card { transition: none !important; }
+}
