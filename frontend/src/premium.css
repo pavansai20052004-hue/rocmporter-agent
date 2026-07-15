@@ -901,3 +901,39 @@
     gap: var(--space-6);
   }
 }
+
+/* ── Report "arrival" — sections stagger in after the scan overlay ──── */
+.workspace-has-report .report-panel > * {
+  animation: reportIn 0.6s var(--ease-out) both;
+}
+.workspace-has-report .report-panel > *:nth-child(1) { animation-delay: 0.04s; }
+.workspace-has-report .report-panel > *:nth-child(2) { animation-delay: 0.12s; }
+.workspace-has-report .report-panel > *:nth-child(3) { animation-delay: 0.20s; }
+.workspace-has-report .report-panel > *:nth-child(4) { animation-delay: 0.28s; }
+.workspace-has-report .report-panel > *:nth-child(5) { animation-delay: 0.36s; }
+@keyframes reportIn {
+  from { opacity: 0; transform: translateY(20px); }
+}
+
+/* Findings pop in one after another for a lively, alive feel. */
+.workspace-has-report .finding-item {
+  animation: reportIn 0.5s var(--ease-out) both;
+}
+.workspace-has-report .finding-item:nth-child(2) { animation-delay: 0.06s; }
+.workspace-has-report .finding-item:nth-child(3) { animation-delay: 0.12s; }
+.workspace-has-report .finding-item:nth-child(4) { animation-delay: 0.18s; }
+.workspace-has-report .finding-item:nth-child(5) { animation-delay: 0.24s; }
+.workspace-has-report .finding-item:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* Tighter, more intentional vertical rhythm on the summary tiles. */
+.workspace-has-report .summary-grid { gap: var(--space-3); }
+.workspace-has-report .metric-card { transition: transform 0.2s var(--ease-out), border-color 0.25s var(--ease-out); }
+.workspace-has-report .metric-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-has-report .report-panel > *,
+  .workspace-has-report .finding-item { animation: none !important; }
+}
