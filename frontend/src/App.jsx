@@ -138,6 +138,8 @@ function App() {
   const verifyingPatchIdRef = useRef(null)
   const patchPanelRef = useRef(null)
   const savedScanRef = useRef(null)
+  const [scanFxActive, setScanFxActive] = useState(false)
+  const scanFxStartRef = useRef(0)
   const patchInFlight = patchJob?.status === 'queued' || patchJob?.status === 'running'
 
   // Save each completed scan to the signed-in user's history (once per scan).
@@ -147,6 +149,19 @@ function App() {
     savedScanRef.current = scan.scanId
     saveScan(user.id, report, scan.repoUrl ?? repoUrl)
   }, [report, user, isDemoMode, scan, repoUrl])
+
+  // Keep the cinematic scanning overlay up until the scan resolves AND a
+  // minimum on-screen time has passed, so it always feels intentional.
+  useEffect(() => {
+    if (!scanFxActive) return undefined
+    const done = report != null || scan?.status === 'failed' || Boolean(error)
+    if (!done) return undefined
+    const MIN_MS = 3500
+    const elapsed = Date.now() - scanFxStartRef.current
+    const remaining = Math.max(0, MIN_MS - elapsed)
+    const id = window.setTimeout(() => setScanFxActive(false), remaining)
+    return () => window.clearTimeout(id)
+  }, [scanFxActive, report, scan, error])
 
   const applyOllamaState = useCallback(
     (nextStatus) => {
@@ -435,6 +450,8 @@ function App() {
     setGitHubReview(null)
     setReport(null)
     setIsSubmitting(true)
+    scanFxStartRef.current = Date.now()
+    setScanFxActive(true)
 
     try {
       const nextScan = await createScan(repoUrl)
@@ -860,6 +877,13 @@ function App() {
     <div className="app-shell">
       <div className="ambient-bg" aria-hidden="true"></div>
       <div className="ambient-grid" aria-hidden="true"></div>
+      <ScanningOverlay
+        active={scanFxActive}
+        repoUrl={scan?.repoUrl ?? repoUrl}
+        percent={scan?.progress?.percent ?? 0}
+        stage={scan?.progress?.stage}
+        failed={scanFailed}
+      />
       {toast ? (
         <div className={`toast-banner${toast.tone === 'error' ? ' error' : ''}`} role="status" aria-live="polite">
           <span>{toast.message}</span>
@@ -1959,6 +1983,58 @@ function PricingSection() {
 
 function EmptyState({ text }) {
   return <p className="empty-state">{text}</p>
+}
+
+const SCAN_STAGES = [
+  { key: 'cloning', label: 'Cloning repository', upto: 30 },
+  { key: 'detecting', label: 'Detecting GPU code', upto: 55 },
+  { key: 'analyzing', label: 'Analyzing CUDA usage', upto: 85 },
+  { key: 'scoring', label: 'Scoring ROCm readiness', upto: 100 },
+]
+
+function ScanningOverlay({ active, repoUrl, percent, stage, failed }) {
+  if (!active) return null
+  const shownPct = Math.max(6, Math.min(99, percent || 0))
+  const repoLabel = (repoUrl || '').replace('https://github.com/', '')
+  return (
+    <div className="scanfx" role="status" aria-live="polite">
+      <div className="scanfx-aurora" aria-hidden="true"></div>
+      <div className="scanfx-card">
+        <div className="scanfx-visual" aria-hidden="true">
+          <div className="scanfx-radar">
+            <span className="radar-ring r1"></span>
+            <span className="radar-ring r2"></span>
+            <span className="radar-ring r3"></span>
+            <span className="radar-sweep"></span>
+            <span className="radar-core"></span>
+            {[12, 28, 44, 60, 76, 88].map((d, i) => (
+              <span key={d} className={`radar-blip b${i}`}></span>
+            ))}
+          </div>
+          <div className="scanfx-scanline"></div>
+        </div>
+
+        <p className="scanfx-eyebrow">{failed ? 'Scan interrupted' : 'Scanning repository'}</p>
+        <h2 className="scanfx-repo">{repoLabel || 'your repository'}</h2>
+
+        <div className="scanfx-bar">
+          <span className="scanfx-bar-fill" style={{ width: `${shownPct}%` }}></span>
+        </div>
+
+        <ul className="scanfx-stages">
+          {SCAN_STAGES.map((s) => {
+            const state = shownPct >= s.upto ? 'done' : shownPct >= s.upto - 30 ? 'active' : 'idle'
+            return (
+              <li key={s.key} className={`scanfx-stage ${state}`}>
+                <span className="scanfx-dot"></span>
+                {s.label}
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </div>
+  )
 }
 
 function UserChip({ user, plan, isPro, onSignOut }) {
