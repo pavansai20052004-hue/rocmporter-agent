@@ -60,7 +60,7 @@ const PRICING_TIERS = [
     price: '$29',
     cadence: 'per month',
     tagline: 'For engineers shipping the migration.',
-    features: ['Everything in Free', 'AI single-file ROCm patches', 'Verify + safe apply / rollback', 'GitHub PR review artifacts', 'Private repository scanning'],
+    features: ['Everything in Free', 'AI single-file ROCm patches', 'One-click migration PRs', 'Verify + safe apply / rollback', 'GitHub PR review artifacts', 'Private repository scanning'],
     cta: 'Upgrade to Pro',
     highlighted: true,
   },

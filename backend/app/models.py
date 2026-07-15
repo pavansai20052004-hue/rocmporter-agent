@@ -236,6 +236,29 @@ class BillingPortalRequest(BaseModel):
     returnUrl: str
 
 
+class MigrationRequest(BaseModel):
+    githubToken: str = Field(min_length=1)
+    model: str | None = None
+
+
+class MigrationFileStatus(BaseModel):
+    path: str
+    status: str  # generating | patched | skipped
+    note: str | None = None
+
+
+class MigrationStatus(BaseModel):
+    migrationId: str
+    scanId: str
+    status: str  # queued | running | completed | failed
+    stage: str
+    percent: int
+    error: str | None = None
+    prUrl: str | None = None
+    branch: str | None = None
+    files: list[MigrationFileStatus] = Field(default_factory=list)
+
+
 class ExportRequest(BaseModel):
     patchId: str | None = None
     formats: list[ExportFormat] = Field(default_factory=lambda: ["json", "markdown", "html", "zip", "github"])

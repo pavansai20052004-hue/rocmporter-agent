@@ -7,7 +7,9 @@ import {
   applyPatch,
   createExport,
   createGitHubReview,
+  createMigrationPr,
   createPatch,
+  getMigration,
   createScan,
   getApiUrl,
   getHealth,
@@ -93,7 +95,7 @@ function warningTitle(warning) {
 }
 
 function App() {
-  const { user, signOut, plan, isPro, isConfigured: authConfigured } = useAuth()
+  const { user, signOut, plan, isPro, isConfigured: authConfigured, providerToken } = useAuth()
   const [repoUrl, setRepoUrl] = useState(() => {
     if (typeof window !== 'undefined') {
       const preset = new URLSearchParams(window.location.search).get('repo')
@@ -140,6 +142,9 @@ function App() {
   const savedScanRef = useRef(null)
   const [scanFxActive, setScanFxActive] = useState(false)
   const scanFxStartRef = useRef(0)
+  const [migration, setMigration] = useState(null)
+  const [migrationError, setMigrationError] = useState('')
+  const [isStartingMigration, setIsStartingMigration] = useState(false)
   const patchInFlight = patchJob?.status === 'queued' || patchJob?.status === 'running'
 
   // Save each completed scan to the signed-in user's history (once per scan).
@@ -177,6 +182,49 @@ function App() {
       }
     })
   }, [])
+
+  // Poll a running migration-PR job until it completes or fails.
+  useEffect(() => {
+    if (!migration || migration.status === 'completed' || migration.status === 'failed') return undefined
+    const id = window.setInterval(async () => {
+      try {
+        const next = await getMigration(migration.migrationId)
+        setMigration(next)
+        if (next.status === 'failed' && next.error) setMigrationError(next.error)
+      } catch {
+        /* transient poll errors are fine */
+      }
+    }, 2500)
+    return () => window.clearInterval(id)
+  }, [migration])
+
+  async function handleOpenMigrationPr() {
+    if (!scan?.scanId || isStartingMigration) return
+    setMigrationError('')
+    if (isDemoMode) {
+      setMigrationError('Migration PRs need a real scan — run one on your repository first.')
+      return
+    }
+    if (authConfigured && user && !isPro) {
+      setMigrationError('Migration PRs are a Pro feature. Upgrade to Pro below to unlock them.')
+      const pricing = document.getElementById('pricing')
+      if (pricing) pricing.scrollIntoView({ behavior: 'smooth' })
+      return
+    }
+    if (!providerToken) {
+      setMigrationError('Connect GitHub first (sign in with GitHub) so we can open the PR on your repository.')
+      return
+    }
+    try {
+      setIsStartingMigration(true)
+      const job = await createMigrationPr(scan.scanId, { githubToken: providerToken })
+      setMigration(job)
+    } catch (err) {
+      setMigrationError(err.message)
+    } finally {
+      setIsStartingMigration(false)
+    }
+  }
 
   // Keep the cinematic scanning overlay up until the scan resolves AND a
   // minimum on-screen time has passed, so it always feels intentional.
@@ -1242,6 +1290,16 @@ function App() {
             </section>
           ) : null}
 
+          {report && !isDemoMode ? (
+            <MigrationPanel
+              migration={migration}
+              error={migrationError}
+              starting={isStartingMigration}
+              hasGitHub={Boolean(providerToken)}
+              onStart={handleOpenMigrationPr}
+            />
+          ) : null}
+
           {report ? (
             <div className="summary-grid">
               <article className="metric-card">
@@ -1912,6 +1970,7 @@ const PRICING_TIERS = [
     features: [
       'Everything in Free',
       'AI-generated single-file ROCm patches',
+      'One-click full-repo migration PRs',
       'Patch verification & safe apply / rollback',
       'GitHub-ready PR review artifacts',
       'Private repository scanning (PAT)',
@@ -2062,6 +2121,79 @@ function ScanningOverlay({ active, repoUrl, percent, stage, failed }) {
         </ul>
       </div>
     </div>
+  )
+}
+
+const MIGRATION_STAGE_LABELS = {
+  queued: 'Queued…',
+  generating: 'Generating ROCm patches…',
+  branching: 'Creating branch…',
+  committing: 'Committing migrated files…',
+  opening_pr: 'Opening pull request…',
+  completed: 'Pull request opened!',
+  failed: 'Migration failed',
+}
+
+function MigrationPanel({ migration, error, starting, hasGitHub, onStart }) {
+  const running = migration && migration.status !== 'completed' && migration.status !== 'failed'
+  const done = migration?.status === 'completed'
+  return (
+    <section className={`panel-card migration-panel glow-card${done ? ' done' : ''}`}>
+      <div className="migration-head">
+        <div>
+          <p className="section-label">Migration PR</p>
+          <h3>
+            {done
+              ? 'Your migration pull request is ready 🎉'
+              : running
+                ? MIGRATION_STAGE_LABELS[migration.stage] ?? 'Working…'
+                : 'Migrate this repo to ROCm in one pull request'}
+          </h3>
+          {!migration && !error ? (
+            <p className="panel-copy">
+              AI-patches every flagged file, pushes a branch to your repository, and opens a reviewable PR.
+              {!hasGitHub ? ' Sign in with GitHub to enable it.' : ''}
+            </p>
+          ) : null}
+        </div>
+        {done ? (
+          <a className="primary-button shine-btn migration-cta" href={migration.prUrl} target="_blank" rel="noreferrer">
+            View pull request →
+          </a>
+        ) : (
+          <button
+            type="button"
+            className="primary-button shine-btn migration-cta"
+            onClick={onStart}
+            disabled={starting || running}
+          >
+            {starting ? 'Starting…' : running ? 'Working…' : 'Open Migration PR'}
+          </button>
+        )}
+      </div>
+
+      {running ? (
+        <div className="scanfx-bar migration-bar">
+          <span className="scanfx-bar-fill" style={{ width: `${Math.max(6, migration.percent)}%` }}></span>
+        </div>
+      ) : null}
+
+      {migration?.files?.length ? (
+        <ul className="migration-files">
+          {migration.files.map((f) => (
+            <li key={f.path} className={`migration-file ${f.status}`}>
+              <span className="migration-file-status">
+                {f.status === 'patched' ? '✓' : f.status === 'skipped' ? '–' : '…'}
+              </span>
+              <code>{f.path}</code>
+              {f.note ? <em>{f.note}</em> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {error ? <p className="error-banner migration-error">{error}</p> : null}
+    </section>
   )
 }
 

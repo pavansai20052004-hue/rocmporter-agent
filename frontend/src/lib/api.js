@@ -230,6 +230,17 @@ export function createExport(scanId, payload) {
   })
 }
 
+export function createMigrationPr(scanId, payload) {
+  return request(`/api/scans/${scanId}/migration-pr`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getMigration(migrationId) {
+  return request(`/api/migrations/${migrationId}`)
+}
+
 export function createGitHubReview(scanId, payload) {
   return request(`/api/scans/${scanId}/github-review`, {
     method: 'POST',

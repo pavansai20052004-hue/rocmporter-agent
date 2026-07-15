@@ -30,6 +30,8 @@ from .models import (
     ExportResult,
     GitHubReviewRequest,
     GitHubReviewResult,
+    MigrationRequest,
+    MigrationStatus,
     OllamaHealthStatus,
     OllamaModelInfo,
     OllamaWarmRequest,
@@ -43,6 +45,7 @@ from .models import (
     ScanStatus,
 )
 from .llm_service import get_health_status, list_models, warm_model
+from .migration_service import migration_service
 from .patch_service import patch_service
 from .service import scan_service
 
@@ -325,6 +328,27 @@ def billing_checkout(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"url": url}
+
+
+@app.post("/api/scans/{scan_id}/migration-pr", response_model=MigrationStatus)
+def create_migration_pr(
+    scan_id: str,
+    payload: MigrationRequest,
+    authorization: str | None = Header(default=None),
+) -> MigrationStatus:
+    require_pro_plan(authorization)
+    try:
+        return migration_service.start(scan_id, payload.githubToken, payload.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/migrations/{migration_id}", response_model=MigrationStatus)
+def get_migration(migration_id: str) -> MigrationStatus:
+    result = migration_service.get(migration_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Migration job not found")
+    return result
 
 
 @app.post("/api/billing/portal")

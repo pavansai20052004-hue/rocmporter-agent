@@ -1042,3 +1042,80 @@
 @media (prefers-reduced-motion: reduce) {
   .finding-item, .evidence-card { transition: none !important; }
 }
+
+/* ── Migration PR panel ────────────────────────────────────────────── */
+.migration-panel {
+  border-color: var(--accent-glow);
+  background:
+    radial-gradient(70% 160% at 8% 0%, rgba(227, 24, 55, 0.12), transparent 60%),
+    var(--bg-surface);
+}
+.migration-panel.done {
+  border-color: rgba(74, 222, 128, 0.45);
+  background:
+    radial-gradient(70% 160% at 8% 0%, rgba(74, 222, 128, 0.1), transparent 60%),
+    var(--bg-surface);
+}
+.migration-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.migration-head h3 {
+  font-family: var(--font-display);
+  margin: 4px 0 6px;
+}
+.migration-head .panel-copy { margin: 0; max-width: 60ch; }
+.migration-cta {
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.migration-bar { margin-top: var(--space-4); margin-bottom: 0; }
+.migration-files {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-4) 0 0;
+  display: grid;
+  gap: 8px;
+}
+.migration-file {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+  min-width: 0;
+}
+.migration-file code {
+  font-family: var(--font-mono);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.migration-file em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: 0.82rem;
+}
+.migration-file-status {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+.migration-file.patched .migration-file-status { background: var(--good-soft); color: var(--good); }
+.migration-file.skipped .migration-file-status { background: var(--warn-soft); color: var(--warn); }
+.migration-error { margin-top: var(--space-4); }
