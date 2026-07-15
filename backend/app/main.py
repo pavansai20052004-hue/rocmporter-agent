@@ -7,7 +7,7 @@ import os
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from . import auth_service
 from .rate_limit import RateLimiter
@@ -84,6 +84,42 @@ def _client_ip(request: Request) -> str:
 @app.get("/api/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok", "service": "rocmporter-agent", "version": app.version}
+
+
+def _badge_svg(label: str, value: str, color: str) -> str:
+    label_w = 10 + len(label) * 7
+    value_w = 14 + len(value) * 7
+    total = label_w + value_w
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total}" height="20" role="img" aria-label="{label}: {value}">
+<linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>
+<clipPath id="r"><rect width="{total}" height="20" rx="3" fill="#fff"/></clipPath>
+<g clip-path="url(#r)">
+<rect width="{label_w}" height="20" fill="#1a1a1f"/>
+<rect x="{label_w}" width="{value_w}" height="20" fill="{color}"/>
+<rect width="{total}" height="20" fill="url(#s)"/>
+</g>
+<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+<text x="{label_w / 2}" y="14">{label}</text>
+<text x="{label_w + value_w / 2}" y="14" font-weight="bold">{value}</text>
+</g>
+</svg>"""
+
+
+@app.get("/api/badge/{owner}/{repo}")
+def readiness_badge(owner: str, repo: str) -> Response:
+    """Public SVG badge: latest ROCm readiness score for a scanned repo."""
+    report = scan_service.find_latest_report(f"https://github.com/{owner}/{repo}")
+    if report is None:
+        svg = _badge_svg("ROCm ready", "not scanned", "#6b7280")
+    else:
+        score = report.summary.portabilityScore
+        color = "#22a04a" if score >= 80 else "#d99b0b" if score >= 50 else "#e31837"
+        svg = _badge_svg("ROCm ready", f"{score}/100", color)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*"},
+    )
 
 
 def require_pro_plan(authorization: str | None) -> None:

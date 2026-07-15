@@ -30,18 +30,44 @@ ROCmPorter Agent automates the first 80% of that work:
 
 Honesty note: verified benchmark artifacts are **export-ready review bundles, not apply-ready migrations**. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true` — the tool refuses to pretend a patch is safe when it isn't.
 
-## Live demo (zero install)
+## Live product (zero install)
 
-- **Vercel (primary):** <https://rocmporter-agent.vercel.app>
-- GitHub Pages (mirror): <https://pavansai20052004-hue.github.io/rocmporter-agent/>
+- **App:** <https://rocmporter-agent.vercel.app> — real scans of any public GitHub repo, GitHub/Google sign-in, private-repo scanning, AI patch generation (Pro), scan history dashboard.
+- API: <https://rocmporter-api.onrender.com/api/health>
 
-The hosted build runs in **sample mode** by default — click `Load Sample Scan` to walk the full report → patch → verify → export flow entirely offline. To drive the hosted UI from a real local backend, start the backend, expose it over HTTPS (for example `cloudflared tunnel --url http://127.0.0.1:8000`), add the hosted origin to `APP_CORS_ORIGINS` in `backend/.env`, then open:
+Paste a repository URL and hit **Analyze** — the hosted backend clones and scans it live. Sign in with GitHub to scan your own repositories (including private ones) straight from the **My repos** page.
 
-```text
-https://rocmporter-agent.vercel.app/?api=https://<your-tunnel>.trycloudflare.com
+## Use it in your CI (GitHub Action)
+
+Add a ROCm readiness comment to every pull request with one workflow file:
+
+```yaml
+# .github/workflows/rocm-readiness.yml
+name: ROCm readiness
+on: [pull_request]
+permissions:
+  pull-requests: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: pavansai20052004-hue/rocmporter-agent@main
+        # optional:
+        # with:
+        #   fail-below: '50'   # fail the check if the score drops below 50
 ```
 
-The override must be an HTTPS URL (browsers block plain-http API calls from an https page) and persists in the browser; clear it with `?api=reset`.
+Every PR gets a comment with the readiness score, risk level, and top findings — updated in place on each push.
+
+### README badge
+
+Show your repo's latest ROCm readiness score:
+
+```markdown
+![ROCm ready](https://rocmporter-api.onrender.com/api/badge/OWNER/REPO)
+```
+
+The badge reflects the most recent scan of `https://github.com/OWNER/REPO` (green ≥ 80, amber ≥ 50, red below).
 
 ## Prerequisites
 

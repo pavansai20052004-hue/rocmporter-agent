@@ -1,0 +1,146 @@
+name: 'ROCmPorter Scan'
+description: >-
+  Scan a GitHub repository for CUDA/NVIDIA lock-in and post an AMD ROCm
+  readiness report as a pull-request comment.
+author: 'ROCmPorter'
+branding:
+  icon: 'cpu'
+  color: 'red'
+
+inputs:
+  api-url:
+    description: 'ROCmPorter API base URL'
+    required: false
+    default: 'https://rocmporter-api.onrender.com'
+  repo-url:
+    description: 'Repository to scan (defaults to the current repository)'
+    required: false
+    default: ''
+  comment:
+    description: 'Post/update a PR comment with the report (true/false)'
+    required: false
+    default: 'true'
+  fail-below:
+    description: 'Fail the job if the readiness score is below this number (empty = never fail)'
+    required: false
+    default: ''
+
+outputs:
+  score:
+    description: 'ROCm readiness score (0-100)'
+    value: ${{ steps.scan.outputs.score }}
+  risk:
+    description: 'Risk level (low/medium/high)'
+    value: ${{ steps.scan.outputs.risk }}
+  findings:
+    description: 'Number of findings'
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Scan repository with ROCmPorter
+      id: scan
+      shell: bash
+      env:
+        API: ${{ inputs.api-url }}
+        REPO_URL: ${{ inputs.repo-url }}
+      run: |
+        set -euo pipefail
+        REPO_URL="${REPO_URL:-https://github.com/${GITHUB_REPOSITORY}}"
+        echo "Scanning ${REPO_URL} via ${API}"
+
+        # Kick off the scan (retry to ride out free-tier cold starts).
+        SCAN_ID=""
+        for attempt in 1 2 3; do
+          RESP=$(curl -sS -m 90 -X POST "${API}/api/scans" \
+            -H 'Content-Type: application/json' \
+            -d "{\"repoUrl\":\"${REPO_URL}\"}" || true)
+          SCAN_ID=$(echo "$RESP" | jq -r '.scanId // empty')
+          [ -n "$SCAN_ID" ] && break
+          echo "start attempt ${attempt} failed: ${RESP:-no response}; retrying in 20s"
+          sleep 20
+        done
+        if [ -z "$SCAN_ID" ]; then
+          echo "::error::ROCmPorter scan could not be started"
+          exit 1
+        fi
+        echo "scan id: ${SCAN_ID}"
+
+        # Poll until completed (max ~6 min).
+        STATUS="queued"
+        for i in $(seq 1 60); do
+          STATUS=$(curl -sS -m 30 "${API}/api/scans/${SCAN_ID}" | jq -r '.status')
+          [ "$STATUS" = "completed" ] && break
+          if [ "$STATUS" = "failed" ]; then
+            DETAIL=$(curl -sS -m 30 "${API}/api/scans/${SCAN_ID}" | jq -r '.error // "unknown error"')
+            echo "::error::Scan failed: ${DETAIL}"
+            exit 1
+          fi
+          sleep 6
+        done
+        if [ "$STATUS" != "completed" ]; then
+          echo "::error::Scan timed out"
+          exit 1
+        fi
+
+        REPORT=$(curl -sS -m 60 "${API}/api/scans/${SCAN_ID}/report")
+        SCORE=$(echo "$REPORT" | jq -r '.summary.portabilityScore')
+        RISK=$(echo "$REPORT" | jq -r '.summary.riskLevel')
+        FINDINGS=$(echo "$REPORT" | jq '.findings | length')
+        echo "score=${SCORE}"    >> "$GITHUB_OUTPUT"
+        echo "risk=${RISK}"      >> "$GITHUB_OUTPUT"
+        echo "findings=${FINDINGS}" >> "$GITHUB_OUTPUT"
+
+        # Build the markdown report (PR comment + job summary).
+        OWNER_REPO="${REPO_URL#https://github.com/}"
+        {
+          echo "<!-- rocmporter-report -->"
+          echo "## ⚡ ROCmPorter — AMD ROCm readiness"
+          echo ""
+          echo "![ROCm ready](${API}/api/badge/${OWNER_REPO})"
+          echo ""
+          echo "| Score | Risk | Findings |"
+          echo "|-------|------|----------|"
+          echo "| **${SCORE}/100** | ${RISK} | ${FINDINGS} |"
+          echo ""
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "### Top findings"
+            echo "$REPORT" | jq -r '.findings[:5][] | "- **[" + .severity + "]** " + .title + " — `" + (.evidence[0].path // "n/a") + "`"'
+            echo ""
+          fi
+          echo "_Scanned by [ROCmPorter](https://rocmporter-agent.vercel.app) — evidence-backed CUDA → ROCm migration._"
+        } > rocmporter-comment.md
+        cat rocmporter-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Comment on pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        PR_NUMBER="${{ github.event.pull_request.number }}"
+        # Update the existing ROCmPorter comment if present, else create one.
+        EXISTING=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+          --jq '[.[] | select(.body | contains("<!-- rocmporter-report -->"))][0].id // empty')
+        if [ -n "$EXISTING" ]; then
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING}" \
+            -f body="$(cat rocmporter-comment.md)" > /dev/null
+          echo "Updated existing ROCmPorter comment ${EXISTING}"
+        else
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            -f body="$(cat rocmporter-comment.md)" > /dev/null
+          echo "Posted new ROCmPorter comment"
+        fi
+
+    - name: Enforce score threshold
+      if: ${{ inputs.fail-below != '' }}
+      shell: bash
+      run: |
+        SCORE="${{ steps.scan.outputs.score }}"
+        MIN="${{ inputs.fail-below }}"
+        if [ "$SCORE" -lt "$MIN" ]; then
+          echo "::error::ROCm readiness ${SCORE}/100 is below the required ${MIN}"
+          exit 1
+        fi

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { startCheckout } from './lib/billing'
-import { saveScan } from './lib/scans'
+import { getSavedScan, saveScan } from './lib/scans'
 import {
   applyPatch,
   createExport,
@@ -149,6 +149,34 @@ function App() {
     savedScanRef.current = scan.scanId
     saveScan(user.id, report, scan.repoUrl ?? repoUrl)
   }, [report, user, isDemoMode, scan, repoUrl])
+
+  // Reopen a saved report from the dashboard (?saved=<scan row id>).
+  const hydratedSavedRef = useRef(false)
+  useEffect(() => {
+    if (hydratedSavedRef.current || typeof window === 'undefined') return
+    const savedId = new URLSearchParams(window.location.search).get('saved')
+    if (!savedId) return
+    hydratedSavedRef.current = true
+    getSavedScan(savedId).then((row) => {
+      if (!row) return
+      setRepoUrl(row.repo_url)
+      if (row.report) {
+        const syntheticId = `saved_${row.id}`
+        savedScanRef.current = syntheticId // don't re-save to history
+        setScan({
+          scanId: syntheticId,
+          status: 'completed',
+          progress: { stage: 'completed', percent: 100 },
+          repoUrl: row.repo_url,
+          error: null,
+        })
+        setReport(row.report)
+        setToast({ message: `Loaded saved report for ${row.repo_name ?? row.repo_url}`, tone: 'info' })
+      } else {
+        setToast({ message: 'This scan predates saved reports — run a fresh scan.', tone: 'error' })
+      }
+    })
+  }, [])
 
   // Keep the cinematic scanning overlay up until the scan resolves AND a
   // minimum on-screen time has passed, so it always feels intentional.

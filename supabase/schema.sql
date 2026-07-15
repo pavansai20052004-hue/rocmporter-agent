@@ -68,3 +68,6 @@ create policy "scans are insertable by owner"
 
 create index if not exists scans_user_id_created_at_idx
   on public.scans (user_id, created_at desc);
+
+-- v2: store the full scan report so users can reopen past reports.
+alter table public.scans add column if not exists report jsonb;

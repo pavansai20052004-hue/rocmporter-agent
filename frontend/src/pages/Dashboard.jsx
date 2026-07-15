@@ -165,6 +165,13 @@ export default function Dashboard() {
                     ) : null}
                     <button
                       type="button"
+                      className="secondary-button repo-scan-btn"
+                      onClick={() => navigate(`/app?saved=${s.id}`)}
+                    >
+                      View report
+                    </button>
+                    <button
+                      type="button"
                       className="primary-button repo-scan-btn"
                       onClick={() => navigate(`/app?repo=${encodeURIComponent(s.repo_url)}`)}
                     >

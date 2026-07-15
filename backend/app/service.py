@@ -156,6 +156,25 @@ class ScanService:
         _, scan_id, branch = max(candidates, key=lambda item: item[0])
         return scan_id, branch
 
+    def find_latest_report(self, repo_url: str) -> ScanReport | None:
+        """Newest completed report for a repo URL (used by the public badge)."""
+        try:
+            normalized = validate_repo_url(repo_url)
+        except ValueError:
+            return None
+        candidates: list[tuple[float, ScanReport]] = []
+        with self._lock:
+            records = list(self._records.values())
+        for record in records:
+            if record.repo_url != normalized or record.report is None:
+                continue
+            report_path = SCAN_ROOT / f"{record.scan_id}.report.json"
+            mtime = report_path.stat().st_mtime if report_path.exists() else 0.0
+            candidates.append((mtime, record.report))
+        if not candidates:
+            return None
+        return max(candidates, key=lambda item: item[0])[1]
+
     def _create_record(self, normalized_url: str) -> ScanRecord:
         scan_id = f"scan_{uuid.uuid4().hex[:10]}"
         record = ScanRecord(scan_id=scan_id, repo_url=normalized_url)
