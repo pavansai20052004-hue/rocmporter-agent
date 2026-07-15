@@ -861,3 +861,43 @@
 @media (prefers-reduced-motion: reduce) {
   .radar-sweep, .radar-blip, .radar-core, .scanfx-scanline, .scanfx-aurora { animation: none !important; }
 }
+
+/* ── Scanner layout: kill the dead sidebar space, better balance ────── */
+.workspace {
+  align-items: start;
+  max-width: 1500px;
+}
+
+/* When a report is shown, the control panel sticks in view instead of
+   leaving a tall empty column beside the long findings list. */
+@media (min-width: 1025px) {
+  .workspace-has-report .control-panel {
+    position: sticky;
+    top: var(--space-4);
+    align-self: start;
+    max-height: calc(100vh - var(--space-6) * 2);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  }
+  .workspace-has-report .control-panel::-webkit-scrollbar { width: 6px; }
+  .workspace-has-report .control-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+  }
+}
+
+/* Report columns hug the top so short panels don't stretch into voids. */
+.report-panel,
+.report-grid { align-content: start; }
+.report-grid > * { align-self: start; }
+
+/* Findings breathe a little wider on large screens. */
+@media (min-width: 1200px) {
+  .report-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.82fr);
+    gap: var(--space-6);
+  }
+}
