@@ -39,6 +39,15 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # ---- Razorpay (real payments, India) ----
+      # When RAZORPAY_KEY_ID/SECRET are set, checkout switches to Razorpay
+      # automatically (one-time payment -> 31 days of Pro).
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_AMOUNT_PAISE
+        sync: false
       # ---- Supabase (so the webhook can update the user's plan) ----
       - key: SUPABASE_URL
         sync: false

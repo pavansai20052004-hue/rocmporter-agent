@@ -66,12 +66,12 @@ def verify_token(authorization: str | None) -> dict | None:
 
 
 def get_user_plan(user_id: str | None) -> str:
-    """Read the user's plan from Supabase using the service role key."""
+    """Read the user's plan from Supabase, honoring pro_until expiry."""
     base = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not (base and key and user_id):
         return "free"
-    url = f"{base.rstrip('/')}/rest/v1/profiles?id=eq.{user_id}&select=plan"
+    url = f"{base.rstrip('/')}/rest/v1/profiles?id=eq.{user_id}&select=plan,pro_until"
     request = urllib.request.Request(
         url,
         headers={"apikey": key.strip(), "Authorization": f"Bearer {key.strip()}"},
@@ -81,9 +81,25 @@ def get_user_plan(user_id: str | None) -> str:
             rows = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, json.JSONDecodeError):
         return "free"
-    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
-        return rows[0].get("plan") or "free"
-    return "free"
+    if not (isinstance(rows, list) and rows and isinstance(rows[0], dict)):
+        return "free"
+    plan = rows[0].get("plan") or "free"
+    pro_until = rows[0].get("pro_until")
+    if plan in ("pro", "team") and pro_until:
+        try:
+            expiry = datetime_fromiso(pro_until)
+            if expiry < time.time():
+                return "free"
+        except ValueError:
+            pass
+    return plan
+
+
+def datetime_fromiso(value: str) -> float:
+    """ISO timestamp -> unix seconds (handles the trailing Z variant)."""
+    from datetime import datetime
+
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
 
 
 def is_pro_plan(plan: str) -> bool:

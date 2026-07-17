@@ -40,11 +40,13 @@ from .models import (
     PatchRequest,
     PatchResult,
     PatchVerificationReceipt,
+    RazorpayVerifyRequest,
     ScanReport,
     ScanRequest,
     ScanStatus,
 )
 from .llm_service import get_health_status, list_models, warm_model
+from . import razorpay_service as razorpay
 from .migration_service import migration_service
 from .patch_service import patch_service
 from .service import scan_service
@@ -349,6 +351,50 @@ def get_migration(migration_id: str) -> MigrationStatus:
     if result is None:
         raise HTTPException(status_code=404, detail="Migration job not found")
     return result
+
+
+@app.get("/api/billing/config")
+def billing_config() -> dict[str, object]:
+    provider = razorpay.active_provider()
+    config: dict[str, object] = {"provider": provider}
+    if provider == "razorpay":
+        config["amount"] = razorpay.amount_paise()
+        config["currency"] = "INR"
+        config["priceLabel"] = f"₹{razorpay.amount_paise() // 100:,}/month"
+    return config
+
+
+def _require_user(authorization: str | None) -> dict:
+    claims = auth_service.verify_token(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Please sign in first.")
+    return claims
+
+
+@app.post("/api/billing/razorpay/order")
+def razorpay_order(authorization: str | None = Header(default=None)) -> dict[str, object]:
+    claims = _require_user(authorization)
+    try:
+        return razorpay.create_order(claims.get("sub", ""))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/billing/razorpay/verify")
+def razorpay_verify(
+    payload: RazorpayVerifyRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    claims = _require_user(authorization)
+    try:
+        pro_until = razorpay.verify_and_grant(
+            claims.get("sub", ""), payload.orderId, payload.paymentId, payload.signature
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"plan": "pro", "proUntil": pro_until}
 
 
 @app.post("/api/billing/portal")

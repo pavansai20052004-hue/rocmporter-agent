@@ -236,6 +236,12 @@ class BillingPortalRequest(BaseModel):
     returnUrl: str
 
 
+class RazorpayVerifyRequest(BaseModel):
+    orderId: str = Field(min_length=1)
+    paymentId: str = Field(min_length=1)
+    signature: str = Field(min_length=1)
+
+
 class MigrationRequest(BaseModel):
     githubToken: str = Field(min_length=1)
     model: str | None = None

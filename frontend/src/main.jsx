@@ -10,6 +10,7 @@ import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
 import Repos from './pages/Repos.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import Billing from './pages/Billing.jsx'
 import { Terms, Privacy } from './pages/Legal.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -44,6 +45,14 @@ createRoot(document.getElementById('root')).render(
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <ProtectedRoute>
+                <Billing />
               </ProtectedRoute>
             }
           />
