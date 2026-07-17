@@ -8,6 +8,11 @@
 
 <br/>
 
+<img src="docs/demo.gif" alt="ROCmPorter scanning a CUDA repository and generating an AMD ROCm migration report" width="840"/>
+
+<br/>
+<br/>
+
 [![Live App](https://img.shields.io/badge/▶_Live_App-rocmporter--agent.vercel.app-e31837?style=for-the-badge)](https://rocmporter-agent.vercel.app)
 &nbsp;
 [![ROCm Ready](https://rocmporter-api.onrender.com/api/badge/pytorch/extension-cpp)](https://rocmporter-agent.vercel.app)
