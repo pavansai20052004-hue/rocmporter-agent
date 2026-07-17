@@ -230,6 +230,10 @@ export function createExport(scanId, payload) {
   })
 }
 
+export function deleteAccount() {
+  return request('/api/account/delete', { method: 'POST' })
+}
+
 export function createMigrationPr(scanId, payload) {
   return request(`/api/scans/${scanId}/migration-pr`, {
     method: 'POST',

@@ -104,3 +104,28 @@ def datetime_fromiso(value: str) -> float:
 
 def is_pro_plan(plan: str) -> bool:
     return plan in ("pro", "team")
+
+
+def delete_user(user_id: str) -> None:
+    """Permanently delete a user via the Supabase Admin API. Cascades to the
+    user's profiles/scans/payments rows (ON DELETE CASCADE)."""
+    base = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not (base and key and user_id):
+        raise RuntimeError("Account deletion is not available — the server is missing Supabase admin credentials.")
+    request = urllib.request.Request(
+        f"{base.rstrip('/')}/auth/v1/admin/users/{user_id}",
+        headers={"apikey": key.strip(), "Authorization": f"Bearer {key.strip()}"},
+        method="DELETE",
+    )
+    try:
+        urllib.request.urlopen(request, timeout=20)
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:  # pragma: no cover
+            pass
+        raise RuntimeError(f"Could not delete account ({exc.code}): {detail[:160]}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Could not reach Supabase: {getattr(exc, 'reason', exc)}") from exc

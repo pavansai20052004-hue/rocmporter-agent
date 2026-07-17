@@ -397,6 +397,16 @@ def razorpay_verify(
     return {"plan": "pro", "proUntil": pro_until}
 
 
+@app.post("/api/account/delete")
+def delete_account(authorization: str | None = Header(default=None)) -> dict[str, bool]:
+    claims = _require_user(authorization)
+    try:
+        auth_service.delete_user(claims.get("sub", ""))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"deleted": True}
+
+
 @app.post("/api/billing/portal")
 def billing_portal(
     payload: BillingPortalRequest,

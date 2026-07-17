@@ -1336,3 +1336,85 @@
   .billing-payment-row { grid-template-columns: auto auto 1fr; }
   .billing-payment-row code, .billing-payment-row time { display: none; }
 }
+
+/* ── Settings page ─────────────────────────────────────────────────── */
+.settings-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-3) 0 var(--space-6);
+}
+.settings-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 1px solid var(--page-border-strong);
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+}
+.settings-identity h3 {
+  font-family: var(--font-display);
+  margin: 0;
+  color: var(--text-main);
+}
+.settings-email { color: var(--text-soft); margin: 2px 0 0; }
+.settings-identity .plan-badge { margin-left: auto; }
+.settings-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--page-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+.settings-facts dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.settings-facts dd {
+  margin: 4px 0 0;
+  color: var(--text-main);
+  font-weight: 600;
+}
+.settings-note { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
+
+.settings-danger {
+  border-color: rgba(248, 113, 113, 0.4);
+  background:
+    radial-gradient(60% 130% at 8% 0%, rgba(248, 113, 113, 0.08), transparent 60%),
+    var(--bg-surface);
+}
+.danger-label { color: var(--critical); }
+.settings-danger h3 { font-family: var(--font-display); color: var(--text-main); margin: 6px 0 var(--space-2); }
+.settings-delete-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+.settings-confirm-input { max-width: 260px; }
+.danger-button {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--critical);
+  background: rgba(248, 113, 113, 0.12);
+  color: #ffb3b3;
+  font-weight: 700;
+  transition: all 0.2s var(--ease-out);
+}
+.danger-button:hover:not(:disabled) {
+  background: var(--critical);
+  color: #fff;
+}
+.danger-button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .settings-facts { grid-template-columns: 1fr; }
+}
