@@ -9,7 +9,7 @@ const NAV = [
   { to: '/settings', label: 'Settings', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.3 7.3 0 0 0-2-1.2l-.4-2.6H9.5l-.4 2.6a7.3 7.3 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.3 7.3 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.3 7.3 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2Z' },
 ]
 
-export default function AppShell({ eyebrow, title, actions, children }) {
+export default function AppShell({ eyebrow, title, actions, children, wide = false, overlay = null }) {
   const { user, plan, isPro, signOut } = useAuth()
   const meta = user?.user_metadata || {}
   const avatar = meta.avatar_url || meta.picture || null
@@ -20,6 +20,7 @@ export default function AppShell({ eyebrow, title, actions, children }) {
       <div className="ambient-bg" aria-hidden="true"></div>
       <div className="ambient-grid" aria-hidden="true"></div>
       <div className="aurora" aria-hidden="true"></div>
+      {overlay}
 
       <aside className="shell-side">
         <Link to="/" className="shell-brand">
@@ -65,7 +66,7 @@ export default function AppShell({ eyebrow, title, actions, children }) {
         </div>
       </aside>
 
-      <div className="shell-main">
+      <div className={`shell-main${wide ? ' shell-wide' : ''}`}>
         <header className="shell-head">
           <div>
             {eyebrow ? <p className="eyeline">{eyebrow}</p> : null}

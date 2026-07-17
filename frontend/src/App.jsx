@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import AppShell from './components/AppShell'
 import { startCheckout } from './lib/billing'
 import { getSavedScan, saveScan } from './lib/scans'
 import {
@@ -950,16 +951,27 @@ function App() {
   const scanFailed = scan?.status === 'failed'
 
   return (
-    <div className="app-shell">
-      <div className="ambient-bg" aria-hidden="true"></div>
-      <div className="ambient-grid" aria-hidden="true"></div>
-      <ScanningOverlay
-        active={scanFxActive}
-        repoUrl={scan?.repoUrl ?? repoUrl}
-        percent={scan?.progress?.percent ?? 0}
-        stage={scan?.progress?.stage}
-        failed={scanFailed}
-      />
+    <AppShell
+      wide
+      eyebrow="ROCmPorter"
+      title="Scanner"
+      overlay={
+        <ScanningOverlay
+          active={scanFxActive}
+          repoUrl={scan?.repoUrl ?? repoUrl}
+          percent={scan?.progress?.percent ?? 0}
+          stage={scan?.progress?.stage}
+          failed={scanFailed}
+        />
+      }
+      actions={
+        <div className="scanner-head-actions">
+          <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
+          <span className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</span>
+          {user && !isPro ? <Link className="primary-button shell-cta" to="/billing">Upgrade to Pro</Link> : null}
+        </div>
+      }
+    >
       {toast ? (
         <div className={`toast-banner${toast.tone === 'error' ? ' error' : ''}`} role="status" aria-live="polite">
           <span>{toast.message}</span>
@@ -968,40 +980,6 @@ function App() {
           </button>
         </div>
       ) : null}
-
-      <header className="topbar">
-        <div className="brand-block">
-          <div className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7.5 2.5h14v14l-4-4v-6h-6l-4-4Z" fill="#fff" />
-              <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
-            </svg>
-          </div>
-          <div>
-            <p className="eyeline">ROCmPorter Product Build</p>
-            <h1>ROCmPorter Agent</h1>
-            <p className="brand-tagline">CUDA-to-ROCm readiness scans, reviewable patch artifacts, and audit-grade exports — fully local.</p>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <SystemStatusChips apiHealth={apiHealth} ollamaStatus={ollamaStatus} />
-          <div className="topbar-chip">Scan: {humanizeStatus(scan?.status ?? 'idle')}</div>
-          <div className="topbar-links">
-            {user ? <Link className="topbar-pricing-link" to="/dashboard">Dashboard</Link> : null}
-            {user ? <Link className="topbar-pricing-link" to="/repos">My repos</Link> : null}
-            {user && !isPro ? (
-              <a className="topbar-pricing-link" href="#pricing">Upgrade</a>
-            ) : (
-              <a className="topbar-pricing-link" href="#pricing">Pricing</a>
-            )}
-            {user ? (
-              <UserChip user={user} plan={plan} isPro={isPro} onSignOut={signOut} />
-            ) : (
-              <Link className="topbar-pricing-link" to="/login">Sign in</Link>
-            )}
-          </div>
-        </div>
-      </header>
 
       <BenchmarkProofPanel proof={benchmarkProof} />
 
@@ -1931,17 +1909,7 @@ function App() {
       </main>
 
       <PricingSection />
-
-      <footer className="site-footer">
-        <div className="site-footer-brand">
-          <strong>ROCmPorter Agent</strong>
-          <span>Evidence-driven CUDA → AMD ROCm migration reports and reviewable patches.</span>
-        </div>
-        <span className="site-footer-note">
-          Scans run on your backend. AI patches use your configured model provider.
-        </span>
-      </footer>
-    </div>
+    </AppShell>
   )
 }
 

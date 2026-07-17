@@ -1418,3 +1418,26 @@
 @media (max-width: 640px) {
   .settings-facts { grid-template-columns: 1fr; }
 }
+
+/* ── Scanner inside the shell ──────────────────────────────────────── */
+.shell-main.shell-wide { max-width: 1560px; }
+.shell-wide .shell-content { gap: var(--space-5); }
+/* Neutralize the old standalone scanner chrome now that it lives in the shell. */
+.shell-wide .workspace { max-width: 100%; margin: 0; }
+.shell-wide #workspace { padding: 0; }
+.scanner-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.scanner-head-actions .shell-cta {
+  text-decoration: none;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+}
+@media (max-width: 720px) {
+  .scanner-head-actions .system-status-row { display: none; }
+}
