@@ -115,19 +115,24 @@ Green ≥ 80 · amber ≥ 50 · red below. (The badge at the top of this page is
 
 ---
 
-## 🖼️ In action
+## 🖼️ See it in action
+
+The best way to experience ROCmPorter is live. The hosted app features an animated scanning sequence, a 3D hero, a full dashboard, and one-click migration PRs.
 
 <div align="center">
 
-| Evidence-backed findings | Verified patch receipts |
-|:---:|:---:|
-| <img src="docs/screenshots/02-sample-findings.png" width="420"/> | <img src="docs/screenshots/03-patch-verification-receipt.png" width="420"/> |
-| **GitHub review + exports** | **Audit summary** |
-| <img src="docs/screenshots/04-export-and-github-review.png" width="420"/> | <img src="docs/screenshots/06-submission-proof-summary.png" width="420"/> |
+### ▶ **[Open the live app →](https://rocmporter-agent.vercel.app)**
 
-*The [live app](https://rocmporter-agent.vercel.app) has an updated premium UI — animated scanning, 3D hero, and a full dashboard.*
+*Paste any public GitHub repository and watch it scan in real time — no signup required.*
 
 </div>
+
+**What you'll see:**
+
+- 🔍 An **evidence-backed report** — every CUDA finding with its exact file, line, and snippet
+- 📊 A **ROCm readiness score** (0–100) with risk level and a migration checklist
+- 🤖 **AI patches** with a live radar-scan animation and a staged results reveal
+- 🚀 A **"Open Migration PR"** button that ports the whole repo and opens a pull request
 
 ---
 
