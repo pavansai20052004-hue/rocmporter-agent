@@ -1,45 +1,89 @@
 <div align="center">
 
-# ROCmPorter Agent
+# ⚡ ROCmPorter
 
-**Point it at any CUDA repo. Get an AMD ROCm readiness report — with evidence, risk scores, and verified patch suggestions.**
+### Break free from CUDA lock-in. Ship on AMD in minutes.
 
-Local-first · No cloud GPU required · Powered by FastAPI + React + Ollama
+**ROCmPorter scans any GitHub repository for NVIDIA / CUDA dependencies, scores its AMD ROCm readiness with line-level evidence, and opens a pull request that migrates your code — automatically.**
 
-[**🚀 Try the live demo**](https://rocmporter-agent.vercel.app) · [Screenshots](docs/screenshots/README.md) · [How it works](#what-the-mvp-does) · [Run locally](#run-locally)
+<br/>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](backend/requirements.txt)
-[![Node 20+](https://img.shields.io/badge/Node-20%2B-brightgreen.svg)](frontend/package.json)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](https://github.com/pavansai20052004-hue/rocmporter-agent/pulls)
+[![Live App](https://img.shields.io/badge/▶_Live_App-rocmporter--agent.vercel.app-e31837?style=for-the-badge)](https://rocmporter-agent.vercel.app)
+&nbsp;
+[![ROCm Ready](https://rocmporter-api.onrender.com/api/badge/pytorch/extension-cpp)](https://rocmporter-agent.vercel.app)
 
-<img src="docs/screenshots/02-sample-findings.png" alt="ROCmPorter Agent — evidence-backed CUDA findings with one-click patch generation" width="900">
+[![License: MIT](https://img.shields.io/badge/License-MIT-22a04a.svg?style=flat-square)](LICENSE)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg?style=flat-square)](backend/)
+[![React](https://img.shields.io/badge/UI-React_19-61dafb.svg?style=flat-square)](frontend/)
+[![Deploy](https://img.shields.io/badge/Deploy-Vercel_+_Render-000000.svg?style=flat-square)](#-deployment)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-e31837.svg?style=flat-square)](https://github.com/pavansai20052004-hue/rocmporter-agent/pulls)
+
+**[🚀 Try the live app](https://rocmporter-agent.vercel.app)** · **[✨ Features](#-features)** · **[🔧 How it works](#-how-it-works)** · **[🤖 Use in CI](#-use-it-in-your-ci)** · **[💬 Roadmap](#-roadmap)**
 
 </div>
 
-## Why this exists
+---
 
-A huge amount of GPU code is locked to CUDA — build scripts that hard-require `nvcc`, `CUDAExtension` in `setup.py`, NVIDIA-only Docker base images, `cupy` imports. Porting it to AMD ROCm today means reading the whole repo by hand.
+## 🎯 Why ROCmPorter exists
 
-ROCmPorter Agent automates the first 80% of that work:
+A massive amount of GPU code is **locked to NVIDIA CUDA** — `nvcc` in the build, `cudaMalloc` in the kernels, `torch.cuda` everywhere, NVIDIA-only Docker images. That lock-in is expensive: NVIDIA GPUs cost more and are harder to get, while **AMD GPUs (via ROCm)** are often cheaper and more available.
 
-1. **Scan** — deterministic static-analysis rules find CUDA/NVIDIA assumptions and cite the exact file and line as evidence.
-2. **Score** — every finding gets a risk level and confidence, rolled up into a ROCm portability score and migration checklist.
-3. **Patch** — a local LLM (via [Ollama](https://ollama.com)) drafts single-file ROCm patch diffs, which are then syntax-checked, semantically risk-scored, and verified with diff replay and artifact hashes before anything can be exported or applied.
-4. **Ship** — export offline HTML/JSON/Markdown reports, GitHub-ready PR review comments, and CI-friendly bundles.
+The catch? Porting CUDA → ROCm today means **reading the entire repo by hand** and rewriting every NVIDIA-specific line. Most teams never do it. So they stay stuck.
 
-Honesty note: verified benchmark artifacts are **export-ready review bundles, not apply-ready migrations**. Workspace apply is available only when a verification receipt explicitly returns `applyReady=true` — the tool refuses to pretend a patch is safe when it isn't.
+**ROCmPorter automates the painful 90%:**
 
-## Live product (zero install)
+> Point it at a repo → get evidence-backed findings and a readiness score → generate verified ROCm patches → **open a migration pull request** — in minutes, not months.
 
-- **App:** <https://rocmporter-agent.vercel.app> — real scans of any public GitHub repo, GitHub/Google sign-in, private-repo scanning, AI patch generation (Pro), scan history dashboard.
-- API: <https://rocmporter-api.onrender.com/api/health>
+<br/>
 
-Paste a repository URL and hit **Analyze** — the hosted backend clones and scans it live. Sign in with GitHub to scan your own repositories (including private ones) straight from the **My repos** page.
+<div align="center">
 
-## Use it in your CI (GitHub Action)
+### 👉 **[See it live — scan any public repo, free](https://rocmporter-agent.vercel.app)** 👈
 
-Add a ROCm readiness comment to every pull request with one workflow file:
+</div>
+
+---
+
+## ✨ Features
+
+| | |
+|---|---|
+| 🔍 **Evidence-driven scans** | Every finding cites the exact **file, line, and code snippet**. No hand-waving — proof you can click. |
+| 📊 **ROCm readiness score** | A 0–100 portability score + risk level + migration checklist for any repository. |
+| 🤖 **AI ROCm patches** | Reviewable, single-file CUDA→HIP migration patches with readable rationale. |
+| 🚀 **One-click Migration PRs** | Migrates *every* flagged file and **opens a pull request** on your repo. The moat feature. |
+| ✅ **Verify before apply** | Syntax checks, drift detection, artifact hashes, and diff replay before anything touches your code. |
+| 🐙 **GitHub-native** | Sign in with GitHub, scan public **and private** repos, get PR-ready review artifacts. |
+| 📦 **Audit-grade exports** | Offline HTML / JSON / Markdown / diff / checksummed zip bundles for CI and compliance. |
+| 🏷️ **CI Action + badge** | A GitHub Action that comments readiness on every PR, plus a live `ROCm ready` README badge. |
+
+---
+
+## 🔧 How it works
+
+```mermaid
+flowchart LR
+    A["📁 GitHub repo"] --> B["🔍 Scan<br/>(clone + static analysis)"]
+    B --> C["📊 Evidence<br/>score · findings · lines"]
+    C --> D["🤖 AI patches<br/>CUDA → ROCm/HIP"]
+    D --> E["✅ Verify<br/>syntax · drift · replay"]
+    E --> F["🚀 Migration PR<br/>opened on your repo"]
+
+    style A fill:#1a1a1f,stroke:#e31837,color:#fff
+    style F fill:#1a1a1f,stroke:#22a04a,color:#fff
+    style C fill:#111,stroke:#00c3b8,color:#fff
+```
+
+1. **Scan** — deterministic static-analysis rules clone the repo and flag CUDA/NVIDIA assumptions, citing exact evidence.
+2. **Score** — findings roll up into a ROCm portability score, risk level, and migration checklist.
+3. **Patch** — a hosted LLM drafts ROCm/HIP patches, which are syntax-checked, risk-scored, and verified with diff replay before export or apply.
+4. **Ship** — export audit bundles, post GitHub PR reviews, or **open a full-repo migration pull request** with one click.
+
+---
+
+## 🤖 Use it in your CI
+
+Add a **ROCm readiness comment to every pull request** with one workflow file:
 
 ```yaml
 # .github/workflows/rocm-readiness.yml
@@ -54,258 +98,119 @@ jobs:
       - uses: pavansai20052004-hue/rocmporter-agent@main
         # optional:
         # with:
-        #   fail-below: '50'   # fail the check if the score drops below 50
+        #   fail-below: '50'   # fail the check if readiness drops below 50
 ```
 
-Every PR gets a comment with the readiness score, risk level, and top findings — updated in place on each push.
+Every PR gets a live comment with the score, risk, and top findings — updated in place on each push.
 
 ### README badge
 
-Show your repo's latest ROCm readiness score:
+Show your repo's latest ROCm readiness anywhere:
 
 ```markdown
 ![ROCm ready](https://rocmporter-api.onrender.com/api/badge/OWNER/REPO)
 ```
 
-The badge reflects the most recent scan of `https://github.com/OWNER/REPO` (green ≥ 80, amber ≥ 50, red below).
-
-## Prerequisites
-
-- Python 3.10+ (3.11 recommended)
-- Node.js 20+
-- Git on PATH (used for repository cloning)
-- Optional: [Ollama](https://ollama.com) with a coding model such as `qwen2.5-coder` for local patch generation
-
-The `scripts/local/*.ps1` helpers are Windows PowerShell conveniences; the manual `uvicorn` + `vite` commands in *Run locally* work on any OS.
-
-## Judge Quick Start
-
-1. Read the portal-ready pitch: [docs/submission-pitch.md](docs/submission-pitch.md)
-2. Review the tracked proof summary: [docs/benchmark-proof/submission-proof-v2-summary.md](docs/benchmark-proof/submission-proof-v2-summary.md)
-3. Open the screenshot gallery: [docs/screenshots/README.md](docs/screenshots/README.md)
-4. Install dependencies once, then start the local product:
-
-   ```powershell
-   cd backend; python -m venv .venv; .\.venv\Scripts\python -m pip install -r requirements.txt; cd ..
-   cd frontend; npm install; cd ..
-   .\scripts\local\start-local-dev.ps1
-   ```
-
-5. Open `http://127.0.0.1:5178` and click `Load Sample Scan` for the fastest reliable demo.
-
-No time to install? Use the [hosted demo](https://rocmporter-agent.vercel.app) in sample mode instead.
-
-## Submission Package
-
-Create portal uploads from Git, not from the whole desktop folder. The working directory can contain ignored local artifacts such as `work/`, `frontend/node_modules/`, `backend/.venv/`, and Playwright output.
-
-```powershell
-git archive --format zip HEAD -o rocmporter-agent-submission.zip
-```
-
-## Stack
-
-- `frontend/`: React + Vite report UI
-- `backend/`: FastAPI scan API with deterministic static-analysis rules
-
-## What the MVP does
-
-1. Accepts a GitHub repository URL
-2. Clones the repository with a shallow fetch
-3. Scans for CUDA files, CUDA headers, build-system assumptions, container signals, and Python GPU package clues
-4. Returns a ROCm portability score, findings, and a migration checklist
-5. Generates single-file ROCm patch diffs per evidence file through local Ollama
-6. Validates generated patches where local syntax tooling is available and surfaces warnings when review is still required
-7. Scores patch review risk with CUDA and ROCm-aware semantic heuristics instead of trusting syntax alone
-8. Generates GitHub-ready PR review comments with suggested patch text and optional comment posting
-9. Supports private GitHub repository cloning through a local PAT in `backend/.env`
-10. Applies generated patches only inside the scanned workspace copy with backup-and-restore rollback
-11. Verifies patches with syntax checks, source drift checks, artifact hashes, and diff replay before apply/export
-12. Exports offline HTML, JSON, Markdown, diff, GitHub review, verification receipt, checksum, and zip artifacts for sharing or CI
-
-Live validation notes are tracked in [docs/live-demo-receipt.md](docs/live-demo-receipt.md).
-
-## Run locally
-
-Backend:
-
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Optional local secrets:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Frontend:
-
-```powershell
-cd frontend
-npm install
-npm run dev -- --host 127.0.0.1 --port 5178
-```
-
-If the frontend is hosted separately from Vite dev proxy, create `frontend/.env` from `frontend/.env.example` and set:
-
-```powershell
-VITE_API_BASE_URL=http://127.0.0.1:8000
-```
-
-Backend CORS can be widened with:
-
-```powershell
-APP_CORS_ORIGINS=http://localhost:5178,http://127.0.0.1:5178
-```
-
-Optional Ollama override:
-
-```powershell
-OLLAMA_HOST=http://127.0.0.1:11434
-```
-
-Private GitHub repository access:
-
-```powershell
-GITHUB_PAT=ghp_your_token_here
-```
-
-The Vite dev server proxies `/api/*` requests to the FastAPI server on port `8000`.
-
-## Ollama setup
-
-The local patch workflow expects Ollama running on the machine with at least one coding model installed.
-
-Example:
-
-```powershell
-ollama list
-ollama run qwen2.5-coder
-```
-
-## Local-first mode
-
-Paid AMD cloud access is optional. The product can be developed and demoed locally with Ollama, CPU syntax validation, offline artifacts, and free scan-only GitHub Actions.
-
-From the repository root:
-
-```powershell
-.\scripts\local\check-local.ps1
-.\scripts\local\check-local.ps1 -RunChecks
-.\scripts\local\start-local-dev.ps1
-```
-
-The local launcher writes logs and state under `work\local-dev\`. Use `.\scripts\local\status-local-dev.ps1` to verify the running stack and `.\scripts\local\stop-local-dev.ps1` to stop the backend/frontend services cleanly.
-
-See [docs/local-first-runbook.md](docs/local-first-runbook.md) for the complete local runbook.
-
-For judging and team rehearsals, use [docs/demo-script.md](docs/demo-script.md). It includes the live demo path, sample-mode fallback, ROCm proof substitute, GitHub Actions story, and pitch notes.
-
-For repeatable multi-repo patch benchmarking, use [benchmarks/submission-proof-cases.json](benchmarks/submission-proof-cases.json) for the fast 3-case submission proof, [benchmarks/demo-cases.json](benchmarks/demo-cases.json) for the broad smoke path, [benchmarks/quality-check-cases.json](benchmarks/quality-check-cases.json) for the focused conservative-partial benchmark, [benchmarks/selection-check-cases.json](benchmarks/selection-check-cases.json) to verify automatic evidence selection on larger repos, or [benchmarks/judge-quality-cases.json](benchmarks/judge-quality-cases.json) as the candidate pinned 6-case judge-quality patch suite.
-
-Latest verified submission proof: [docs/benchmark-proof/submission-proof-v2-summary.md](docs/benchmark-proof/submission-proof-v2-summary.md) records 3 of 3 cases with 3 export-ready review artifacts, 0 export blocks, 0 infrastructure failures, and 0 high-risk patches. The raw local output was captured at `work\benchmark-runs\submission-proof-v2\summary.json`.
-
-## CLI
-
-From `backend/`:
-
-```powershell
-.\.venv\Scripts\python rocmporter.py models
-.\.venv\Scripts\python rocmporter.py scan https://github.com/pytorch/extension-cpp --export json,md,html,zip,github
-.\.venv\Scripts\python rocmporter.py patch scan_id --finding-id cuda_build_config --evidence-path extension_cpp/setup.py --export json,md,diff,html,zip,github
-.\.venv\Scripts\python rocmporter.py verify-patch scan_id --patch-id patch_id
-.\.venv\Scripts\python rocmporter.py apply-patch scan_id --patch-id patch_id
-.\.venv\Scripts\python rocmporter.py rollback-patch --apply-id apply_id
-.\.venv\Scripts\python rocmporter.py run https://github.com/pytorch/extension-cpp --finding-id cuda_build_config --evidence-path extension_cpp/setup.py --export json,md,diff,html,zip,github
-.\.venv\Scripts\python rocmporter.py github-review scan_id --patch-id patch_id --pr-number 42
-.\.venv\Scripts\python rocmporter.py benchmark --cases ..\benchmarks\submission-proof-cases.json --model qwen2.5-coder:latest --out ..\work\benchmark-runs\submission-proof-local
-.\.venv\Scripts\python rocmporter.py benchmark --cases ..\benchmarks\demo-cases.json --model qwen2.5-coder:latest
-.\.venv\Scripts\python rocmporter.py benchmark --cases ..\benchmarks\judge-quality-cases.json --model qwen2.5-coder:latest --out ..\work\benchmark-runs\judge-quality-local
-```
-
-CLI artifacts are written under `work/cli_exports/` by default.
-
-Benchmark artifacts are written under `work/benchmarks/` by default, or a custom `--out` directory when provided. Fresh benchmark runs record `qualityLane`, `judgeSignal`, `runStatus`, planned case count, and remaining case count so blocked patches, review-ready artifacts, scanner gaps, generation failures, infrastructure failures, and interrupted runs are visible in `summary.json` and `summary.md`.
-
-Generated export bundles include:
-
-- `report.json`
-- `summary.md`
-- `index.html`
-- `github-review.md`
-- `github-review.json`
-- `github-review-inline-comments.json` or equivalent inline review artifact file
-- `manifest.json`
-- `SHA256SUMS.txt`
-- `data/` scan, coverage, evidence, and patch metadata
-- `patches/*.diff`
-- `patch-verification.json`
-- `verification/*-verification.json`
-- `bundle.zip`
-
-Patch exports are blocked unless the latest verification receipt is export-ready. Patch apply is blocked unless the receipt is apply-ready. Each patch stores an immutable source snapshot under `work/patches/source/<patch_id>/...` so exported source context does not drift from the diff.
-
-## Quality checks
-
-Frontend (Playwright browsers install once with `npx playwright install chromium`):
-
-```powershell
-cd frontend
-npm run lint
-npm run build
-npm run test:e2e
-```
-
-Backend (use the project venv interpreter — the tests import FastAPI/pydantic):
-
-```powershell
-backend\.venv\Scripts\python -m compileall backend\app
-backend\.venv\Scripts\python -m unittest discover -s backend\tests
-```
-
-## Hosted deployments
-
-The static frontend deploys to two targets; the FastAPI backend stays local by design (it clones repositories to disk and talks to a local Ollama daemon, so it is not a fit for serverless hosting):
-
-- **Vercel:** configured by [frontend/vercel.json](frontend/vercel.json) (immutable asset caching, security headers, no SPA rewrites so `/api/*` fails fast into the app's offline messaging). Deploy with `cd frontend && vercel deploy --prod`. In the Vercel dashboard the project root directory is `frontend`; leave `VITE_API_BASE_URL` unset so the hosted demo stays in sample mode.
-- **GitHub Pages:** deployed automatically by [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) on pushes to `main` that touch `frontend/`.
-
-Both hosted builds support the `?api=<https-url>` runtime override described in *Live demo* above.
-
-## GitHub Action
-
-A real workflow now lives at [.github/workflows/rocmporter-agent.yml](.github/workflows/rocmporter-agent.yml).
-
-- Scan-only runs on `ubuntu-latest`
-- Frontend quality checks run lint, build, and Playwright smoke tests
-- Scan plus patch runs on a labeled self-hosted runner with Ollama
-- AMD Developer Cloud ROCm validation runs from [.github/workflows/amd-devcloud-rocm-validation.yml](.github/workflows/amd-devcloud-rocm-validation.yml) on a self-hosted AMD/ROCm runner when free GPU access is available
-- Phase 4 can also generate GitHub review artifacts. Posting is optional and requires `--post`, a PR number, export-ready verification, and a token with write permission; inline comments are filtered against the current PR diff.
-- Phase 5 adds PAT-based private repo access and line-aware review artifacts for PR workflows
-- Both upload the export bundle as a workflow artifact
-
-## Next upgrade ideas
-
-- Add an LLM-written executive summary on top of the deterministic findings
-- Add direct web-based patch apply once the CLI rollback flow has enough mileage
-- Add ROCm hardware benchmark capture when free AMD GPU access is available
-
-## Contributing
-
-Issues and PRs are welcome — especially new CUDA-detection rules, ROCm/HIP mapping improvements, and real-world repos where the scanner misses something. Open an issue with a repo link and what you expected, and it becomes a test case.
-
-## License
-
-[MIT](LICENSE) — free to use, fork, and build on.
+Green ≥ 80 · amber ≥ 50 · red below. (The badge at the top of this page is live for `pytorch/extension-cpp`.)
 
 ---
 
+## 🖼️ In action
+
 <div align="center">
 
-Built for the AMD hackathon. If ROCmPorter saves you porting time, a ⭐ helps other GPU developers find it.
+| Evidence-backed findings | Verified patch receipts |
+|:---:|:---:|
+| <img src="docs/screenshots/02-sample-findings.png" width="420"/> | <img src="docs/screenshots/03-patch-verification-receipt.png" width="420"/> |
+| **GitHub review + exports** | **Audit summary** |
+| <img src="docs/screenshots/04-export-and-github-review.png" width="420"/> | <img src="docs/screenshots/06-submission-proof-summary.png" width="420"/> |
+
+*The [live app](https://rocmporter-agent.vercel.app) has an updated premium UI — animated scanning, 3D hero, and a full dashboard.*
+
+</div>
+
+---
+
+## 💳 Pricing
+
+| Plan | Price | For |
+|---|---|---|
+| **Free** | $0 forever | Unlimited public-repo scans, full reports, migration checklist, offline exports |
+| **Pro** | $29/mo (or ₹ via Razorpay) | AI patches · one-click migration PRs · verify + safe apply/rollback · private repos |
+| **Team** | Custom | CI/CD pipelines · AMD Developer Cloud validation · shared bundles & seats |
+
+Payments via **Stripe** (global) or **Razorpay** (India — UPI, cards, netbanking). Card details never touch our servers.
+
+---
+
+## 🧱 Tech stack
+
+- **Frontend** — React 19 + Vite, React Router, a custom dark design system with 3D/motion (no heavy libraries). Hosted on **Vercel**.
+- **Backend** — FastAPI (Python), deterministic static-analysis engine, `git` cloning, hosted-LLM patch generation. Hosted on **Render**.
+- **Auth + DB** — Supabase (GitHub + Google OAuth, Postgres, row-level security).
+- **AI** — pluggable provider (OpenAI / Groq / OpenRouter / Together / DeepSeek / Anthropic, or local Ollama for dev).
+- **Payments** — Stripe + Razorpay.
+
+```
+frontend/   React app (landing, auth, dashboards, scanner)
+backend/    FastAPI API (scan, patch, migrate, billing, badge)
+action.yml  GitHub Action (PR readiness comments)
+supabase/   Database schema
+```
+
+---
+
+## 🚀 Deployment
+
+ROCmPorter is a two-part app: the **frontend** (Vercel) and the **backend** (Render — it needs a real server for `git` + scanning; it cannot run on serverless).
+
+See **[DEPLOY.md](DEPLOY.md)** for the full runbook and **[SETUP.md](SETUP.md)** for enabling auth, GitHub/Google login, and payments.
+
+## 💻 Run locally
+
+```bash
+# Backend (FastAPI)
+cd backend
+python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+
+# Frontend (Vite)
+cd frontend
+npm install
+npm run dev
+```
+
+For local AI patches, run [Ollama](https://ollama.com) with a coding model; or set `LLM_PROVIDER` + `LLM_API_KEY` to use a hosted model. Full config in [`backend/.env.example`](backend/.env.example).
+
+---
+
+## 💬 Roadmap
+
+- [x] Evidence-backed CUDA scans + readiness score
+- [x] AI single-file ROCm patches with verification
+- [x] GitHub + Google auth, private-repo scanning
+- [x] One-click full-repo **Migration PRs**
+- [x] GitHub Action + live readiness badge
+- [x] Stripe + Razorpay billing
+- [ ] Provably runs — validate migrated code on **AMD Developer Cloud**
+- [ ] Docs-grounded (RAG) patches for higher accuracy
+- [ ] Team workspaces & shared audit history
+
+---
+
+## 🤝 Contributing
+
+Issues and PRs are welcome. Found CUDA that ROCmPorter missed? [Open an issue](https://github.com/pavansai20052004-hue/rocmporter-agent/issues) with the repo and file.
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 GJV Pavansai
+
+<div align="center">
+<br/>
+
+**Built for the AMD ecosystem — helping the world escape CUDA lock-in.**
+
+### ⭐ [Star this repo](https://github.com/pavansai20052004-hue/rocmporter-agent) · [Try it live](https://rocmporter-agent.vercel.app)
 
 </div>
