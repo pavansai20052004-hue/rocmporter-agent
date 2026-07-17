@@ -1,94 +1,208 @@
-# ROCmPorter Launch Kit
+# 🚀 ROCmPorter Launch Kit
 
-Everything needed to launch this project publicly, in order. Do Phase 1 today; do Phase 3 on a single chosen day (Tuesday–Thursday, around 8–10 AM US Eastern = 5:30–7:30 PM IST works well for Hacker News and Reddit).
-
----
-
-## Phase 1 — Make the repo findable (15 minutes, do first)
-
-> **Status: DONE (2026-07-11).** Description, homepage, 12 topics, MIT license, and the rename to `rocmporter-agent` are all applied. The remaining manual items are the two web-UI steps below.
-
-Then in the GitHub web UI:
-
-1. **Settings → Social preview** — upload `docs/screenshots/02-sample-findings.png` (or a 1280×640 crop). This is the image shown when anyone shares the repo link on X, LinkedIn, Slack, Discord. Without it, shares look dead.
-2. **Your profile → Customize pins** — pin this repo so it is the first thing visitors see.
-3. Commit and push the new `LICENSE` and README so the license badge and hero image go live.
-
-### Repo rename — DONE
-
-The repo is now `pavansai20052004-hue/rocmporter-agent`. GitHub auto-redirects the old `AMD_HACKTHON` URL and git remotes, but the **GitHub Pages mirror URL does not redirect** — it is now `https://pavansai20052004-hue.github.io/rocmporter-agent/`. If the hackathon submission portal lists the old Pages URL, update it there.
+Everything below is ready to paste. Links: app `https://rocmporter-agent.vercel.app` · repo `https://github.com/pavansai20052004-hue/rocmporter-agent`.
 
 ---
 
-## Phase 2 — Prepare the assets (1–2 hours)
+## 0) Pre-launch checklist (do the night before)
 
-1. **Record a 30–60 second GIF or video** of the flow: paste repo URL → findings appear → Generate Patch → verification receipt → export. Use ScreenToGif (free, Windows) or OBS. Put the GIF at the top of the README. A moving demo is the single highest-converting asset a repo can have.
-2. **Make sure the Vercel demo's "Load Sample Scan" works flawlessly** — that is where every visitor will click first. Test it on your phone too.
-3. Optional: a short dev.to / Hashnode post — "I built a tool that scans repos for CUDA lock-in — here's what I learned about porting to ROCm." Technical war stories convert readers into stargazers.
-
----
-
-## Phase 3 — Launch day (post all of these the same morning)
-
-Concentrated attention is what creates trending: GitHub Trending ranks by **stars gained in the window**, so 150 stars in one day beats 300 spread over a month. Post everything below within a few hours of each other, then spend the rest of the day replying to every single comment fast — responsiveness visibly drives the second wave.
-
-### Hacker News — "Show HN" (highest potential)
-
-Post at <https://news.ycombinator.com/submit>. Title options (pick one, keep it plain — HN hates hype):
-
-> Show HN: Scan a repo for CUDA lock-in and get an AMD ROCm porting report
-
-URL: the GitHub repo (not the Vercel demo — HN convention for Show HN of open source).
-
-First comment (post immediately after submitting, from your account):
-
-> Hi HN — I built this for an AMD hackathon and kept going. It scans a GitHub repo with deterministic static-analysis rules for CUDA/NVIDIA assumptions (nvcc-only build scripts, CUDAExtension, NVIDIA base images, cupy imports), cites file+line evidence, and scores ROCm portability. A local LLM via Ollama drafts single-file patch diffs, which are syntax-checked and risk-scored before export — the tool deliberately refuses to auto-apply anything without a verification receipt, because LLM patches to build systems are exactly where silent breakage lives.
->
-> Live demo (sample mode, nothing to install): https://rocmporter-agent.vercel.app
->
-> Honest limitations: verified artifacts today are review bundles, not apply-ready migrations. I'd love feedback on the detection rules — if you have a repo where it misses CUDA usage, that's a test case I want.
-
-### Reddit (each community, tailored — do NOT copy-paste the same text)
-
-- **r/ROCm** — most receptive audience. Title: "I built an open-source tool that scans repos for CUDA assumptions and generates a ROCm readiness report (with local-LLM patch drafts)". Include screenshots, link demo + repo.
-- **r/LocalLLaMA** — angle: "Using Ollama + qwen2.5-coder to draft CUDA→ROCm patches, with a verification layer so the LLM can't ship broken diffs". This community loves local-first LLM tooling.
-- **r/AMD** — check the subreddit's self-promo rules first (they are strict). Frame as "made a free open-source tool for the ROCm ecosystem", not self-promo.
-- Read each subreddit's rules before posting; some require flair or have promo days.
-
-### X / Twitter thread
-
-> 🧵 GPU code is locked to CUDA everywhere — build scripts, Dockerfiles, python deps. I built an open-source agent that scans any repo and tells you exactly what blocks an AMD ROCm port, with file+line evidence.
->
-> [attach the demo GIF]
->
-> 2/ It doesn't just detect — a local LLM (Ollama) drafts patch diffs, then a verification layer syntax-checks, risk-scores, and diff-replays them. No verification receipt → no export. LLMs don't get to silently break your build.
->
-> 3/ 100% local-first: FastAPI + React + Ollama. No cloud GPU, no API keys needed. Try the live sample demo: rocmporter-agent.vercel.app
->
-> 4/ Built for the AMD hackathon, MIT-licensed, and I want it to get better: if it misses CUDA usage in your repo, file an issue — every miss becomes a test case. ⭐ github.com/pavansai20052004-hue/rocmporter-agent
-
-Tag `@AMD` / ROCm-related accounts only if the content genuinely concerns them (it does here). Use hashtags sparingly: #ROCm #CUDA #opensource.
-
-### LinkedIn (the hackathon story angle)
-
-> I spent [X weeks] building ROCmPorter Agent for the AMD hackathon — an open-source tool that scans any GitHub repo for CUDA lock-in and produces an AMD ROCm readiness report with verified patch suggestions. The hardest part wasn't the LLM — it was building the verification layer that stops the LLM from shipping broken patches. Live demo + code below. Feedback very welcome.
-
-### AMD ecosystem
-
-- Post in the AMD Developer Community forums (community.amd.com) and any hackathon Discord/Slack.
-- If the hackathon has a showcase or newsletter, submit to it.
+- [ ] **Warm the backend** — open the app and run one scan so Render is awake (free tier sleeps).
+- [ ] **⚠️ Consider Render's paid tier ($7/mo) for launch week** — the free tier has cold starts (~40s) and low capacity; if you go viral, scans will time out and you'll lose the crowd. This is the single biggest risk.
+- [ ] **GitHub repo → About (gear icon):**
+  - Description: `Scan any repo for CUDA lock-in and auto-migrate it to AMD ROCm — evidence-backed, with one-click migration PRs.`
+  - Website: `https://rocmporter-agent.vercel.app`
+  - Topics: `rocm` `cuda` `amd` `gpu` `hip` `migration` `pytorch` `devtools` `fastapi` `react` `llm` `open-source`
+- [ ] **Pin the repo** on your GitHub profile.
+- [ ] Confirm the **demo GIF** loads in the README.
+- [ ] Have a **screenshot of a real Migration PR** ready to reply with when people ask "does it actually work?"
+- [ ] Star your own repo; ask 5–10 friends to star in the first hour (velocity matters for GitHub Trending).
 
 ---
 
-## What NOT to do (this kills repos)
+## 1) GitHub Trending strategy (how "#1 repo of the day" actually works)
 
-- **Never buy stars or join star-exchange rings.** GitHub detects fake-star patterns, removes them, and flagged repos are excluded from Trending — the opposite of the goal. Every star-farm "service" is a scam against you.
-- **No mass-DM or comment-spam promotion.** Communities ban it and the reputation damage is permanent.
-- **Don't dribble posts out over weeks.** One coordinated day beats a month of trickle for trending math.
-- **Don't argue with critics on launch day.** "Good point, filed as an issue" earns more stars than any rebuttal.
+GitHub Trending ranks by **star velocity** (stars gained in a short window), not total stars. To trend:
+1. **Concentrate stars into a few hours** — don't drip them over days. Post everywhere the same morning.
+2. **Post where developers are** at the same time (HN + Reddit + Twitter + PH).
+3. Every post drives people to the repo → the demo GIF converts them → they star.
+4. Ask (once, genuinely) for a star in your posts and README.
 
-## Realistic expectations
+Best day: **Tuesday–Thursday**. Best time: **~8–10am ET** (US morning + EU afternoon = ~6–7:30pm IST).
 
-- #1 on GitHub Trending overall in a day typically takes 500–1000+ stars in 24h — that's front-page-of-HN territory, which nobody can guarantee.
-- **Trending in a language or topic category** (Python, or the `rocm` topic) is genuinely achievable with 100–300 stars in a day from a good HN/Reddit run.
-- A well-executed launch for a real tool like this typically lands 50–500 stars. That's the difference between invisible and credible — and it compounds: stars → search ranking → more stars.
+---
+
+## 2) Hacker News — "Show HN"
+
+**Title** (HN is strict: no hype words, ≤ 80 chars):
+```
+Show HN: ROCmPorter – scan a repo for CUDA lock-in and auto-migrate it to AMD
+```
+
+**URL:** `https://rocmporter-agent.vercel.app`
+
+**First comment (post immediately after submitting):**
+```
+Hi HN, I built ROCmPorter to solve a problem I kept hitting: a huge amount of GPU
+code is locked to NVIDIA CUDA (nvcc in the build, cudaMalloc in kernels, torch.cuda
+everywhere), and porting it to AMD ROCm means reading the whole repo by hand.
+
+ROCmPorter scans any GitHub repo, flags every CUDA/NVIDIA dependency with the exact
+file + line as evidence, scores its ROCm readiness (0–100), and can open a pull
+request that migrates the flagged files to ROCm/HIP.
+
+How it works:
+- Deterministic static analysis finds the CUDA assumptions (no LLM guessing here)
+- A hosted LLM drafts the ROCm/HIP patches, which are syntax-checked + diff-replayed
+- One click pushes a branch and opens a PR on your repo
+
+It's free for public-repo scans (no signup). Stack: FastAPI + React, Supabase auth,
+pluggable LLM provider. There's also a GitHub Action that comments readiness on PRs.
+
+Honest limitations: AI patches need human review before merging, and the free-tier
+backend can be slow on a cold start. Feedback very welcome — especially CUDA patterns
+it misses.
+
+Repo: https://github.com/pavansai20052004-hue/rocmporter-agent
+```
+
+> HN tips: reply to every comment fast and humbly. Don't ask for upvotes (bannable). Don't use a link shortener.
+
+---
+
+## 3) Reddit
+
+### r/ROCm  (most on-target)
+**Title:** `I built a tool that scans repos for CUDA lock-in and auto-migrates them to ROCm`
+
+**Body:**
+```
+I kept running into CUDA-only code that would've run fine on AMD with some porting,
+so I built ROCmPorter.
+
+Paste any GitHub repo → it flags every CUDA/NVIDIA dependency with the exact file and
+line, gives a ROCm readiness score, and can open a pull request that migrates the
+flagged files to ROCm/HIP.
+
+Free for public repos, no signup: https://rocmporter-agent.vercel.app
+Open source (MIT): https://github.com/pavansai20052004-hue/rocmporter-agent
+
+It uses static analysis to find the CUDA (not an LLM), then an LLM for the patches
+with syntax + diff-replay verification. Would love feedback on CUDA patterns it misses,
+and whether the migration PRs are useful on real ROCm codebases.
+```
+
+### r/MachineLearning  (use the [P] Project flair)
+**Title:** `[P] ROCmPorter – scan any repo for CUDA lock-in, get an AMD ROCm migration PR`
+*(reuse the r/ROCm body; add a line about using the readiness score to triage which repos are worth porting.)*
+
+> Reddit tips: follow each sub's self-promotion rules, reply to comments, don't post the same minute in multiple subs. r/CUDA and r/AMD are secondary options.
+
+---
+
+## 4) Twitter / X thread
+
+**Tweet 1 (hook + attach the demo GIF):**
+```
+A huge amount of GPU code is locked to NVIDIA CUDA.
+
+I built ROCmPorter: paste any GitHub repo → it finds every CUDA dependency, scores
+its AMD ROCm readiness, and opens a PR that migrates your code.
+
+Free, no signup 👇
+https://rocmporter-agent.vercel.app
+```
+
+**Tweet 2:**
+```
+Why it matters: NVIDIA GPUs are expensive and hard to get. AMD (ROCm) is often cheaper
+and available — but porting CUDA → ROCm by hand is brutal.
+
+ROCmPorter automates the painful 90%:
+🔍 evidence-backed findings (exact file + line)
+🤖 verified ROCm/HIP patches
+🚀 one-click migration PRs
+```
+
+**Tweet 3:**
+```
+It even ships as a GitHub Action — every PR gets a ROCm readiness comment. Plus a live
+README badge.
+
+Open source (MIT), built with FastAPI + React.
+
+⭐ https://github.com/pavansai20052004-hue/rocmporter-agent
+
+Would love your feedback 🙏
+```
+
+> Tag/DM: @AMD, @amddevcentral, ROCm/GPU folks. Post ~9am ET.
+
+---
+
+## 5) LinkedIn
+
+```
+🚀 I just launched ROCmPorter — a tool that helps you escape CUDA lock-in.
+
+A massive amount of GPU code only runs on NVIDIA CUDA. Moving it to AMD ROCm (often
+cheaper and more available) usually means reading the whole codebase by hand.
+
+ROCmPorter automates it: point it at any GitHub repo and it flags every CUDA
+dependency with line-level evidence, scores its ROCm readiness, and can open a pull
+request that migrates your code — with verification before anything is applied.
+
+✅ Free for public repos, no signup
+✅ Open source (MIT)
+✅ GitHub Action + readiness badge for CI
+
+Try it: https://rocmporter-agent.vercel.app
+Star it: https://github.com/pavansai20052004-hue/rocmporter-agent
+
+Built with FastAPI, React, and a lot of coffee. Feedback welcome! 🙏
+
+#AMD #ROCm #CUDA #GPU #OpenSource #MachineLearning #DevTools
+```
+
+---
+
+## 6) Product Hunt
+
+**Name:** ROCmPorter
+**Tagline (≤ 60 chars):** `Escape CUDA lock-in — auto-migrate any repo to AMD ROCm`
+**Topics:** Developer Tools, Artificial Intelligence, GitHub, Open Source
+
+**Description:**
+```
+ROCmPorter scans any GitHub repository for NVIDIA/CUDA lock-in, scores its AMD ROCm
+readiness with line-level evidence, and opens a pull request that migrates your code to
+ROCm/HIP — with verification before anything is applied. Free for public repos, open
+source, and it ships as a GitHub Action that comments readiness on every PR.
+```
+
+**Maker's first comment:**
+```
+Hey Product Hunt! 👋 CUDA lock-in keeps GPU code tied to expensive NVIDIA hardware.
+ROCmPorter finds every CUDA dependency in a repo, scores how ready it is for AMD ROCm,
+and can open a migration PR for you. It's free to scan public repos (no signup) and
+open source. I'd love your feedback — especially on CUDA patterns it should catch.
+```
+
+> PH tip: launch at **12:01am PT**. Line up friends to *comment* (not just upvote) in the first hour.
+
+---
+
+## 7) One-line pitch (for DMs, comments, bios)
+
+> ROCmPorter scans your code for NVIDIA CUDA lock-in and automatically migrates it to run on cheaper, more-available AMD GPUs — turning a months-long port into minutes.
+
+---
+
+## 8) Launch-day order of operations
+
+1. **Night before:** finish checklist §0. Warm the server. Set GitHub About/topics.
+2. **~8:00am ET:** post **Show HN** → immediately add your first comment.
+3. **~8:10am ET:** post to **r/ROCm**, then **r/MachineLearning [P]**.
+4. **~8:20am ET:** post the **Twitter thread** (with GIF) + **LinkedIn**.
+5. **First 2 hours:** reply to EVERY comment fast. Ask friends to star + comment.
+6. **Optional:** Product Hunt on its own day (12:01am PT) for a second wave.
+7. **All day:** watch Render logs; if scans slow down, that's the traffic — upgrade the dyno.
