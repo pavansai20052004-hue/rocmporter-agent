@@ -202,7 +202,10 @@ For local AI patches, run [Ollama](https://ollama.com) with a coding model; or s
 - [x] One-click full-repo **Migration PRs**
 - [x] GitHub Action + live readiness badge
 - [x] Stripe + Razorpay billing
-- [ ] Provably runs — validate migrated code on **AMD Developer Cloud**
+- [x] **Hybrid migration engine** — deterministic hipify pass first, AI only for the semantic remainder (per-file "N deterministic + AI remainder" provenance)
+- [x] **ROCm compile validation** — `hipcc` checks in AMD's official container on every PR ([guide](docs/rocm-validation.md))
+- [x] **VS Code extension** — inline CUDA lock-in diagnostics, HIP hovers, one-click hipify ([vscode-extension/](vscode-extension/))
+- [ ] GPU **execution** validation on AMD Developer Cloud (self-hosted runner receipt)
 - [ ] Docs-grounded (RAG) patches for higher accuracy
 - [ ] Team workspaces & shared audit history
 

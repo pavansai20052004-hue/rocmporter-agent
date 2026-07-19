@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .hipify_service import build_hybrid_note, hipify_text
 from .llm_service import default_model, generate_structured, resolve_model_name
 from .models import MigrationFileStatus, MigrationStatus
 from .service import REPO_ROOT, scan_service
@@ -157,10 +158,24 @@ class MigrationService:
                 entry.status = "skipped"
                 entry.note = "file too large for reliable single-pass migration"
                 continue
+
+            # Hybrid engine, stage 1: deterministic hipify pass (no model).
+            hip = hipify_text(source, path)
+            if hip.fully_converted:
+                # Every CUDA token was mechanically mapped — commit as-is,
+                # no LLM involved. This is the highest-trust path.
+                entry.status = "patched"
+                entry.note = f"deterministic hipify — {hip.total_replacements} mechanical replacement(s), no AI needed"
+                content = hip.converted
+                patched.append((path, content if content.endswith("\n") else content + "\n", entry.note))
+                continue
+
+            # Stage 2: LLM finishes only what the mechanical pass couldn't.
+            base = hip.converted if hip.total_replacements else source
             try:
                 payload = generate_structured(
                     record.model,
-                    _migration_prompt(path, source),
+                    _migration_prompt(path, base, build_hybrid_note(hip)),
                     MIGRATION_SCHEMA,
                     system=(
                         "You are an AMD ROCm migration engineer. Convert CUDA/NVIDIA-specific code to "
@@ -179,7 +194,13 @@ class MigrationService:
                 entry.note = "needs manual attention (insufficient single-file context)"
                 continue
             entry.status = "patched"
-            entry.note = (payload.get("rationale") or "").strip()[:240] or None
+            rationale = (payload.get("rationale") or "").strip()[:200]
+            hybrid_tag = (
+                f"hybrid: {hip.total_replacements} deterministic + AI remainder"
+                if hip.total_replacements
+                else "AI-generated"
+            )
+            entry.note = f"{hybrid_tag}. {rationale}"[:240] or None
             patched.append((path, content if content.endswith("\n") else content + "\n", entry.note or ""))
 
         if not patched:
@@ -297,12 +318,15 @@ def _pick_targets(report) -> list[str]:
     return ordered
 
 
-def _migration_prompt(path: str, source: str) -> str:
+def _migration_prompt(path: str, source: str, hybrid_note: str = "") -> str:
+    note_block = f"\nMechanical pass report:\n{hybrid_note}\n" if hybrid_note else ""
     return (
         f"Migrate this file from CUDA/NVIDIA-specific code to AMD ROCm/HIP.\n"
-        f"File path: {path}\n\n"
+        f"File path: {path}\n"
+        f"{note_block}\n"
         "Rules:\n"
-        "- Replace CUDA APIs/headers with HIP equivalents (cuda.h -> hip/hip_runtime.h, cudaMalloc -> hipMalloc, etc.).\n"
+        "- Replace remaining CUDA APIs/headers with HIP equivalents (cuda.h -> hip/hip_runtime.h, cudaMalloc -> hipMalloc, etc.).\n"
+        "- Do NOT undo or re-translate anything the mechanical pass already converted to hip*.\n"
         "- In build files, replace nvcc/CUDA toolchain assumptions with ROCm/hipcc equivalents while keeping the build working.\n"
         "- Keep everything else byte-for-byte identical: comments, formatting, unrelated logic.\n"
         "- If a correct migration is impossible without seeing other files, set needsMoreContext=true.\n\n"
@@ -326,9 +350,19 @@ def _pr_body(report, files: list[MigrationFileStatus]) -> str:
         lines += ["", "### Needs manual attention"]
         for f in skipped:
             lines.append(f"- `{f.path}` — {f.note or 'skipped'}")
+    deterministic = sum(1 for f in patched if f.note and "deterministic hipify" in f.note)
     lines += [
         "",
-        "> ⚠️ These changes are AI-generated. Review, build, and test on ROCm hardware before merging.",
+        "### How these patches were made (hybrid engine)",
+        f"- 🔩 **{deterministic}** file(s) fully converted by the **deterministic hipify pass** (mechanical CUDA→HIP API mapping, no AI)",
+        f"- 🤖 **{len(patched) - deterministic}** file(s) finished by AI for the parts the mechanical pass can't do (per-file notes above)",
+        "",
+        "### Validate this PR on the real ROCm toolchain",
+        "Add ROCmPorter's [ROCm compile-validation workflow](https://github.com/pavansai20052004-hue/rocmporter-agent/blob/main/.github/workflows/rocm-compile-validate.yml) "
+        "to this repository and this PR gets `hipcc` compile checks in AMD's official ROCm container — no GPU required. "
+        "[Full validation guide →](https://github.com/pavansai20052004-hue/rocmporter-agent/blob/main/docs/rocm-validation.md)",
+        "",
+        "> ⚠️ Review, build, and test on ROCm hardware before merging.",
         "",
         "_Opened by [ROCmPorter](https://rocmporter-agent.vercel.app) — evidence-backed CUDA → ROCm migration._",
     ]

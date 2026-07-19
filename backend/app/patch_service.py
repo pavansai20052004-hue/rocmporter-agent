@@ -28,6 +28,7 @@ from .models import (
 )
 from .llm_service import REQUEST_TIMEOUT_SECONDS as OLLAMA_REQUEST_TIMEOUT_SECONDS
 from .llm_service import default_model as _default_model
+from .hipify_service import build_hybrid_note, hipify_text
 from .llm_service import generate_structured, resolve_model_name
 
 DEFAULT_OLLAMA_MODEL = _default_model()
@@ -512,7 +513,19 @@ class PatchService:
             patch_mode = "full"
             triage_rationale = ""
             strategy_hint = ""
-            if len(file_text) > MAX_FILE_CHARS:
+            # Hybrid engine stage 1: deterministic hipify pass (no model).
+            hip = hipify_text(file_text, evidence.path)
+            if hip.fully_converted:
+                patch_mode = "full"
+                triage_rationale = (
+                    "Deterministic hipify pass mechanically converted every CUDA token in this file; "
+                    "no AI generation was needed."
+                )
+                partial_fallback = (
+                    hip.converted,
+                    f"Hybrid engine: {hip.summary_line()}. All changes are deterministic API mappings.",
+                )
+            elif len(file_text) > MAX_FILE_CHARS:
                 partial_fallback = _build_conservative_partial_patch(finding, evidence, file_text)
                 if partial_fallback is None:
                     raise RuntimeError("The selected file is too large for reliable local patch generation right now.")
@@ -557,10 +570,15 @@ class PatchService:
                 self._update(record, status="running", stage="generating")
                 patched_content, patch_rationale = partial_fallback
             else:
+                # Hybrid stage 2: prompt from the hipified base so the LLM only
+                # handles what the mechanical pass could not.
+                prompt_source = hip.converted if hip.total_replacements else file_text
+                if hip.total_replacements:
+                    strategy_hint = f"{build_hybrid_note(hip)}\n{strategy_hint}".strip()
                 prompt = _build_patch_prompt(
                     finding,
                     evidence,
-                    file_text,
+                    prompt_source,
                     patch_mode=patch_mode,
                     strategy_hint=strategy_hint,
                     triage_rationale=triage_rationale,

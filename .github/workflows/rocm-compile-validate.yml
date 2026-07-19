@@ -1,0 +1,53 @@
+# ROCm compile validation — proves migrated code compiles with the real ROCm
+# toolchain (hipcc) inside AMD's official container. Runs on normal CI runners
+# (no GPU needed for compilation). Copy this file into any repository to
+# validate ROCmPorter migration PRs.
+#
+# GPU *execution* validation additionally needs a self-hosted runner with an
+# AMD GPU (e.g. AMD Developer Cloud) — see docs/rocm-validation.md.
+
+name: ROCm compile validation
+
+on:
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  hip-compile-check:
+    runs-on: ubuntu-latest
+    container:
+      image: rocm/dev-ubuntu-22.04:6.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show ROCm toolchain
+        run: |
+          hipcc --version || /opt/rocm/bin/hipcc --version
+          echo "ROCm container ready."
+
+      - name: Compile-check HIP/CUDA-migrated sources
+        shell: bash
+        run: |
+          set -uo pipefail
+          export PATH="/opt/rocm/bin:$PATH"
+          FILES=$(find . -type f \( -name '*.hip' -o -name '*.cu' \) \
+                    -not -path './.git/*' | head -50)
+          if [ -z "$FILES" ]; then
+            echo "No .hip/.cu translation units found — nothing to compile-check."
+            exit 0
+          fi
+          FAIL=0
+          for f in $FILES; do
+            echo "::group::hipcc syntax check: $f"
+            # -fsyntax-only: full front-end compile without codegen, so no GPU
+            # and no link dependencies are required.
+            if hipcc -fsyntax-only -x hip "$f" -I. -Iinclude -Isrc 2>&1; then
+              echo "PASS: $f"
+            else
+              echo "::error file=$f::hipcc syntax check failed"
+              FAIL=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $FAIL

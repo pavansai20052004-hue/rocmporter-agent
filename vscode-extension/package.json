@@ -1,0 +1,66 @@
+{
+  "name": "rocmporter",
+  "displayName": "ROCmPorter \u2014 CUDA Lock-in Scanner",
+  "description": "Highlights NVIDIA/CUDA lock-in inline, shows AMD ROCm/HIP equivalents on hover, and offers one-click hipify quick fixes. Companion to rocmporter-agent.vercel.app.",
+  "version": "0.1.0",
+  "publisher": "rocmporter",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pavansai20052004-hue/rocmporter-agent"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "cuda",
+    "rocm",
+    "hip",
+    "amd",
+    "gpu",
+    "migration"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "rocmporter.hipifyFile",
+        "title": "ROCmPorter: Hipify Current File (CUDA \u2192 HIP)"
+      },
+      {
+        "command": "rocmporter.scanRepo",
+        "title": "ROCmPorter: Scan This Repository (opens web app)"
+      },
+      {
+        "command": "rocmporter.toggleDiagnostics",
+        "title": "ROCmPorter: Toggle CUDA Lock-in Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "ROCmPorter",
+      "properties": {
+        "rocmporter.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Highlight CUDA lock-in as warnings with HIP equivalents."
+        },
+        "rocmporter.appUrl": {
+          "type": "string",
+          "default": "https://rocmporter-agent.vercel.app",
+          "description": "ROCmPorter web app base URL."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  }
+}
