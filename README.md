@@ -57,7 +57,9 @@ The catch? Porting CUDA → ROCm today means **reading the entire repo by hand**
 | 🔍 **Evidence-driven scans** | Every finding cites the exact **file, line, and code snippet**. No hand-waving — proof you can click. |
 | 📊 **ROCm readiness score** | A 0–100 portability score + risk level + migration checklist for any repository. |
 | 🤖 **Hybrid hipify + AI patches** | A deterministic CUDA→HIP mapping pass converts the mechanical majority with **zero AI**; the model only handles the semantic remainder — with per-file provenance. |
-| 🧪 **ROCm compile validation** | Migrated code is compile-checked with real `hipcc` in AMD's official ROCm container in CI — [proof, not vibes](docs/rocm-validation.md). |
+| 📚 **Docs-grounded AI** | The AI remainder is grounded in a curated ROCm migration knowledge base (warp-size 64, cuDNN→MIOpen, rocThrust, torch-on-ROCm semantics…) — facts, not vibes. |
+| 🧪 **ROCm compile validation** | Migrated code is compile-checked with real `hipcc` in AMD's official ROCm container in CI — [see the guide](docs/rocm-validation.md). |
+| 🧩 **VS Code extension** | CUDA lock-in underlined as you code, HIP equivalents on hover, quick fixes, and one-click file hipify — [vscode-extension/](vscode-extension/). |
 | 🚀 **One-click Migration PRs** | Migrates *every* flagged file and **opens a pull request** on your repo. The moat feature. |
 | ✅ **Verify before apply** | Syntax checks, drift detection, artifact hashes, and diff replay before anything touches your code. |
 | 🐙 **GitHub-native** | Sign in with GitHub, scan public **and private** repos, get PR-ready review artifacts. |
@@ -207,8 +209,9 @@ For local AI patches, run [Ollama](https://ollama.com) with a coding model; or s
 - [x] **Hybrid migration engine** — deterministic hipify pass first, AI only for the semantic remainder (per-file "N deterministic + AI remainder" provenance)
 - [x] **ROCm compile validation** — `hipcc` checks in AMD's official container on every PR ([guide](docs/rocm-validation.md))
 - [x] **VS Code extension** — inline CUDA lock-in diagnostics, HIP hovers, one-click hipify ([vscode-extension/](vscode-extension/))
+- [x] **Docs-grounded patches** — AI remainder grounded in a curated CUDA→HIP knowledge base (18 API-family notes, deterministic retrieval)
+- [x] **Cross-file migration context** — migration PRs read local headers for consistency, up to 10 files per PR
 - [ ] GPU **execution** validation on AMD Developer Cloud (self-hosted runner receipt)
-- [ ] Docs-grounded (RAG) patches for higher accuracy
 - [ ] Team workspaces & shared audit history
 
 ---
