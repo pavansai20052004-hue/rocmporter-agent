@@ -209,7 +209,14 @@ def _post(url: str, payload: dict, headers: dict) -> dict:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", **headers},
+        # A real User-Agent matters: Cloudflare (in front of Groq and others)
+        # rejects Python-urllib's default UA with 403 error code 1010.
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "ROCmPorter/1.0 (+https://rocmporter-agent.vercel.app)",
+            **headers,
+        },
         method="POST",
     )
     try:
