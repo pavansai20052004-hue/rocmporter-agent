@@ -104,7 +104,12 @@ def resolve_model_name(requested_name: str | None) -> str:
     """
     if not _is_hosted():
         return ollama_service.resolve_model_name(requested_name or ollama_service.DEFAULT_OLLAMA_MODEL)
-    return (requested_name or "").strip() or default_model()
+    requested = (requested_name or "").strip()
+    # Guard: clients sometimes echo a PROVIDER name ("groq", "openai") as the
+    # model — a real provider would 404 on it. Fall back to the default model.
+    if not requested or requested.lower() in (*_OPENAI_COMPATIBLE, "anthropic", "ollama"):
+        return default_model()
+    return requested
 
 
 def generate_structured(
