@@ -17,6 +17,7 @@
 &nbsp;
 [![ROCm Ready](https://rocmporter-api.onrender.com/api/badge/pytorch/extension-cpp)](https://rocmporter-agent.vercel.app)
 
+[![ROCm compile validation](https://github.com/pavansai20052004-hue/rocmporter-agent/actions/workflows/rocm-compile-validate.yml/badge.svg)](https://github.com/pavansai20052004-hue/rocmporter-agent/actions/workflows/rocm-compile-validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22a04a.svg?style=flat-square)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg?style=flat-square)](backend/)
 [![React](https://img.shields.io/badge/UI-React_19-61dafb.svg?style=flat-square)](frontend/)
@@ -55,7 +56,8 @@ The catch? Porting CUDA → ROCm today means **reading the entire repo by hand**
 |---|---|
 | 🔍 **Evidence-driven scans** | Every finding cites the exact **file, line, and code snippet**. No hand-waving — proof you can click. |
 | 📊 **ROCm readiness score** | A 0–100 portability score + risk level + migration checklist for any repository. |
-| 🤖 **AI ROCm patches** | Reviewable, single-file CUDA→HIP migration patches with readable rationale. |
+| 🤖 **Hybrid hipify + AI patches** | A deterministic CUDA→HIP mapping pass converts the mechanical majority with **zero AI**; the model only handles the semantic remainder — with per-file provenance. |
+| 🧪 **ROCm compile validation** | Migrated code is compile-checked with real `hipcc` in AMD's official ROCm container in CI — [proof, not vibes](docs/rocm-validation.md). |
 | 🚀 **One-click Migration PRs** | Migrates *every* flagged file and **opens a pull request** on your repo. The moat feature. |
 | ✅ **Verify before apply** | Syntax checks, drift detection, artifact hashes, and diff replay before anything touches your code. |
 | 🐙 **GitHub-native** | Sign in with GitHub, scan public **and private** repos, get PR-ready review artifacts. |

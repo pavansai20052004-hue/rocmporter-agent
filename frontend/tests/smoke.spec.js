@@ -1,116 +1,59 @@
 import { expect, test } from '@playwright/test'
 
-async function stubOllamaStatus(page) {
-  const checkedAt = new Date('2026-07-01T06:00:00.000Z').toISOString()
-  await page.route('**/api/health', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ status: 'ok' }),
-    })
-  })
-  await page.route('**/api/ollama/status**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        host: 'http://127.0.0.1:11434',
-        reachable: false,
-        checkedAt,
-        version: null,
-        responseTimeMs: null,
-        preferredModel: {
-          requestedName: 'qwen2.5-coder:latest',
-          resolvedName: null,
-          available: false,
-          loaded: false,
-        },
-        modelCount: 0,
-        loadedModelCount: 0,
-        models: [],
-        runningModels: [],
-        summary: 'Playwright stub: Ollama is unavailable for offline UI smoke testing.',
-        error: 'stubbed',
-      }),
-    })
-  })
-  await page.route('**/api/ollama/models', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: '[]',
-    })
-  })
-}
+// Smoke tests for the current SaaS app (landing → login → scanner shell).
+// CI runs without Supabase env, so auth is dormant and protected routes stay
+// open — letting us smoke the scanner without a signed-in session.
 
-test('home screen renders without runtime errors', async ({ page }) => {
-  await stubOllamaStatus(page)
+function collectErrors(page) {
   const messages = []
   page.on('console', (message) => {
-    if (['error', 'warning'].includes(message.type())) {
+    if (message.type() === 'error') {
       const text = message.text()
-      if (!text.includes('Failed to load resource: the server responded with a status of 502')) {
-        messages.push(`${message.type()}: ${text}`)
+      // Backend/API is not running during UI smoke tests; ignore network noise.
+      if (!text.includes('Failed to load resource')) {
+        messages.push(`console error: ${text}`)
       }
     }
   })
   page.on('pageerror', (error) => messages.push(`pageerror: ${error.message}`))
+  return messages
+}
 
-  const response = await page.goto('/', { waitUntil: 'networkidle' })
+test('landing page renders hero and CTAs without runtime errors', async ({ page }) => {
+  const messages = collectErrors(page)
+
+  const response = await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   expect(response?.status()).toBe(200)
-  await expect(page.getByRole('heading', { name: 'ROCmPorter Agent' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Analyze Repository' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'extension-cpp' })).toBeVisible()
-  await expect(page.getByText('Benchmark Proof')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '3 export-ready review artifacts' })).toBeVisible()
-  await expect(page.getByText('submission-proof-v2')).toBeVisible()
-  await expect(page.getByText('Patch Model')).toBeVisible()
-  await expect(page.getByText('No cloud LLM API')).toBeVisible()
-  // Pre-report the right panel collapses to a single zero-state hero.
-  await expect(
-    page.getByRole('heading', { name: 'Scan any CUDA repository. Get an evidence-backed migration report.' }),
-  ).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Export Report' })).toHaveCount(0)
-  await expect(page.getByText('Patch Workspace')).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('CUDA lock-in')
+  await expect(page.getByRole('link', { name: /Scan your first repo|Open the scanner/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
   expect(messages).toEqual([])
 })
 
-test('sample scan demo flow loads report, patch, export, and review states', async ({ page }) => {
-  await stubOllamaStatus(page)
-  const messages = []
-  page.on('console', (message) => {
-    if (['error', 'warning'].includes(message.type())) {
-      const text = message.text()
-      if (!text.includes('Failed to load resource: the server responded with a status of 502')) {
-        messages.push(`${message.type()}: ${text}`)
-      }
-    }
-  })
-  page.on('pageerror', (error) => messages.push(`pageerror: ${error.message}`))
+test('login page shows both OAuth providers', async ({ page }) => {
+  const messages = collectErrors(page)
 
-  await page.goto('/', { waitUntil: 'networkidle' })
+  await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
-  await page.getByRole('button', { name: 'Load Sample Scan' }).first().click()
-  await expect(page.getByRole('heading', { name: 'extension-cpp' })).toBeVisible()
-  await expect(page.getByText('Executive Summary')).toBeVisible()
-  await expect(page.getByText(/scores 54\/100 for ROCm portability/)).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Build configuration is tied to CUDA or NVCC' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Generate Patch' }).first().click()
-  await expect(page.getByText('sample_patch_setup_py_rocm', { exact: true })).toBeVisible()
-  await expect(page.getByText('apply gate blocked')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Export With Patch' }).click()
-  await expect(page.getByText('Sample bundle paths are illustrative')).toBeVisible()
-  await expect(page.getByText('Zip Bundle')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Build GitHub Review' }).click()
-  await expect(page.getByText('Sample review: conservative ROCm build-path aid generated')).toBeVisible()
-  const reviewResult = page.locator('.github-review-result')
-  await expect(reviewResult.getByText('Export Ready', { exact: true })).toBeVisible()
-  await expect(reviewResult.getByText('Apply Ready', { exact: true })).toBeVisible()
-  await expect(reviewResult.getByText('Review artifact: export is ready')).toBeVisible()
-
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Continue with Google/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Continue with GitHub/ })).toBeVisible()
   expect(messages).toEqual([])
+})
+
+test('scanner shell renders repo input and analyze action', async ({ page }) => {
+  const messages = collectErrors(page)
+
+  await page.goto('/app', { waitUntil: 'domcontentloaded' })
+
+  await expect(page.getByPlaceholder('https://github.com/org/repo')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Analyze Repository' })).toBeVisible()
+  expect(messages).toEqual([])
+})
+
+test('unknown routes redirect to the landing page', async ({ page }) => {
+  await page.goto('/definitely-not-a-page', { waitUntil: 'domcontentloaded' })
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('CUDA lock-in')
 })
