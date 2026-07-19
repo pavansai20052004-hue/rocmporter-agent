@@ -23,7 +23,7 @@ function StatCard({ label, value, suffix, tone }) {
   return (
     <div className={`stat-card glow-card${tone ? ' ' + tone : ''}`}>
       <span className="stat-value">
-        <span ref={ref}>0</span>
+        <span ref={ref}>{value}</span>
         {suffix ? <em>{suffix}</em> : null}
       </span>
       <span className="stat-label">{label}</span>
