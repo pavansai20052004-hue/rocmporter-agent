@@ -15,3 +15,4 @@ backend/.env
 .claude/
 .vercel
 .env*
+vscode-extension/*.vsix

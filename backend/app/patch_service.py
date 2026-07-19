@@ -29,6 +29,7 @@ from .models import (
 from .llm_service import REQUEST_TIMEOUT_SECONDS as OLLAMA_REQUEST_TIMEOUT_SECONDS
 from .llm_service import default_model as _default_model
 from .hipify_service import build_hybrid_note, hipify_text
+from .knowledge_base import build_knowledge_block
 from .llm_service import generate_structured, resolve_model_name
 
 DEFAULT_OLLAMA_MODEL = _default_model()
@@ -575,6 +576,9 @@ class PatchService:
                 prompt_source = hip.converted if hip.total_replacements else file_text
                 if hip.total_replacements:
                     strategy_hint = f"{build_hybrid_note(hip)}\n{strategy_hint}".strip()
+                knowledge = build_knowledge_block(file_text)
+                if knowledge:
+                    strategy_hint = f"{knowledge}\n{strategy_hint}".strip()
                 prompt = _build_patch_prompt(
                     finding,
                     evidence,

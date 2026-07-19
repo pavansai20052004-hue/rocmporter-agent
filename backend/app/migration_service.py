@@ -25,13 +25,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .hipify_service import build_hybrid_note, hipify_text
+from .knowledge_base import build_knowledge_block
 from .llm_service import default_model, generate_structured, resolve_model_name
 from .models import MigrationFileStatus, MigrationStatus
 from .service import REPO_ROOT, scan_service
 
 GITHUB_API = "https://api.github.com"
-MAX_FILES = max(1, int(os.getenv("MIGRATION_MAX_FILES", "6")))
+MAX_FILES = max(1, int(os.getenv("MIGRATION_MAX_FILES", "10")))
 MAX_FILE_CHARS = 18_000
+MAX_CONTEXT_HEADERS = 2
+MAX_CONTEXT_HEADER_CHARS = 2_000
 
 MIGRATION_SCHEMA = {
     "type": "object",
@@ -175,7 +178,7 @@ class MigrationService:
             try:
                 payload = generate_structured(
                     record.model,
-                    _migration_prompt(path, base, build_hybrid_note(hip)),
+                    _migration_prompt(path, base, build_hybrid_note(hip), _local_header_context(workspace, path, source)),
                     MIGRATION_SCHEMA,
                     system=(
                         "You are an AMD ROCm migration engineer. Convert CUDA/NVIDIA-specific code to "
@@ -318,12 +321,47 @@ def _pick_targets(report) -> list[str]:
     return ordered
 
 
-def _migration_prompt(path: str, source: str, hybrid_note: str = "") -> str:
+def _local_header_context(workspace: Path, file_rel_path: str, source: str) -> str:
+    """Read-only excerpts of repo-local headers the file includes.
+
+    Gives the model cross-file context (types, macros, declarations) without
+    letting it edit those files — reduces needsMoreContext bailouts.
+    """
+    file_dir = (workspace / Path(file_rel_path)).parent
+    blocks: list[str] = []
+    for match in re.finditer(r'#include\s*"([^"]+)"', source):
+        if len(blocks) >= MAX_CONTEXT_HEADERS:
+            break
+        header_rel = match.group(1)
+        candidates = [file_dir / header_rel, workspace / header_rel]
+        for candidate in candidates:
+            try:
+                resolved = candidate.resolve()
+                if not str(resolved).startswith(str(workspace.resolve())):
+                    break  # never read outside the scan workspace
+                if resolved.is_file():
+                    text = resolved.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_HEADER_CHARS]
+                    blocks.append(f'--- {header_rel} (read-only reference) ---\n{text}')
+                    break
+            except OSError:
+                break
+    if not blocks:
+        return ""
+    return (
+        "Local headers included by this file, for reference ONLY — do not rewrite them, "
+        "just keep this file consistent with them:\n" + "\n".join(blocks)
+    )
+
+
+def _migration_prompt(path: str, source: str, hybrid_note: str = "", context_block: str = "") -> str:
     note_block = f"\nMechanical pass report:\n{hybrid_note}\n" if hybrid_note else ""
+    knowledge = build_knowledge_block(source)
+    knowledge_block = f"\n{knowledge}\n" if knowledge else ""
+    extra_context = f"\n{context_block}\n" if context_block else ""
     return (
         f"Migrate this file from CUDA/NVIDIA-specific code to AMD ROCm/HIP.\n"
         f"File path: {path}\n"
-        f"{note_block}\n"
+        f"{note_block}{knowledge_block}{extra_context}\n"
         "Rules:\n"
         "- Replace remaining CUDA APIs/headers with HIP equivalents (cuda.h -> hip/hip_runtime.h, cudaMalloc -> hipMalloc, etc.).\n"
         "- Do NOT undo or re-translate anything the mechanical pass already converted to hip*.\n"
