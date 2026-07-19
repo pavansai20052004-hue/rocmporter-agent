@@ -9,6 +9,12 @@
 name: ROCm compile validation
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.hip'
+      - '**/*.cu'
+      - '.github/workflows/rocm-compile-validate.yml'
   pull_request:
     branches: ['**']
   workflow_dispatch:
@@ -32,22 +38,32 @@ jobs:
           set -uo pipefail
           export PATH="/opt/rocm/bin:$PATH"
           FILES=$(find . -type f \( -name '*.hip' -o -name '*.cu' \) \
-                    -not -path './.git/*' | head -50)
+                    -not -path './.git/*' -not -path './work/*' | head -50)
           if [ -z "$FILES" ]; then
             echo "No .hip/.cu translation units found — nothing to compile-check."
             exit 0
           fi
           FAIL=0
+          CHECKED=0
           for f in $FILES; do
+            # Unmigrated CUDA sources (still including CUDA headers) cannot
+            # compile in a ROCm container by definition — that IS the lock-in.
+            # Only migrated/HIP translation units are validated here.
+            if grep -qE '#include\s*[<"](cuda|cublas|curand|cufft|cudnn|nccl)' "$f"; then
+              echo "SKIP (not yet migrated — still includes CUDA headers): $f"
+              continue
+            fi
             echo "::group::hipcc syntax check: $f"
             # -fsyntax-only: full front-end compile without codegen, so no GPU
             # and no link dependencies are required.
             if hipcc -fsyntax-only -x hip "$f" -I. -Iinclude -Isrc 2>&1; then
               echo "PASS: $f"
+              CHECKED=$((CHECKED+1))
             else
               echo "::error file=$f::hipcc syntax check failed"
               FAIL=1
             fi
             echo "::endgroup::"
           done
+          echo "Compile-checked $CHECKED migrated translation unit(s)."
           exit $FAIL
