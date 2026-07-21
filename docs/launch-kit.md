@@ -72,11 +72,11 @@ access for that. Tensor-core (wmma) and heavy cuDNN code get flagged for manual
 review rather than guessed at.
 
 It's free for public-repo scans (no signup). Stack: FastAPI + React, Supabase auth,
-pluggable LLM provider. There's also a GitHub Action that comments readiness on PRs.
+pluggable LLM provider. There's also a GitHub Action that comments readiness on PRs,
+and a VS Code extension that underlines CUDA lock-in as you type.
 
-Honest limitations: AI patches need human review before merging, and the free-tier
-backend can be slow on a cold start. Feedback very welcome — especially CUDA patterns
-it misses.
+Feedback very welcome — especially CUDA patterns it misses. If you have a CUDA repo
+you've been meaning to port, paste it in and tell me where the output is wrong.
 
 Repo: https://github.com/pavansai20052004-hue/rocmporter-agent
 ```
