@@ -5,9 +5,9 @@
    ========================================================================== */
 
 .repos-panel {
-  --rp-line: rgba(255, 255, 255, 0.08);
-  --rp-dim: #8b93a7;
-  --rp-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --rp-line: var(--border-subtle);
+  --rp-dim: var(--text-muted);
+  --rp-ease: var(--ease-out);
   display: grid;
   gap: 16px;
 }
@@ -80,10 +80,10 @@
   cursor: pointer;
   transition: background-color 180ms var(--rp-ease), color 180ms var(--rp-ease);
 }
-.repos-tab:hover { color: #e8ecf4; background: rgba(255, 255, 255, 0.04); }
+.repos-tab:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
 .repos-tab.is-active {
   background: rgba(227, 24, 55, 0.16);
-  color: #ff8095;
+  color: var(--accent-text);
 }
 .repos-tab-count {
   font-size: 11px;
@@ -129,11 +129,11 @@
   background: transparent;
   transition: background-color 200ms var(--rp-ease);
 }
-.repo-card.tier-high::before { background: #e31837; }
+.repo-card.tier-high::before { background: var(--accent); }
 .repo-card.tier-medium::before { background: rgba(245, 158, 11, 0.75); }
 
 .repo-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--border-strong);
   background: rgba(255, 255, 255, 0.045);
   transform: translateY(-1px);
 }
@@ -155,7 +155,7 @@
   font-family: var(--font-mono);
   font-size: 13.5px;
   font-weight: 500;
-  color: #e8ecf4;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -173,8 +173,8 @@
   background: rgba(255, 255, 255, 0.07);
   color: var(--rp-dim);
 }
-.rc-chip.is-high { background: rgba(227, 24, 55, 0.18); color: #ff8095; }
-.rc-chip.is-medium { background: rgba(245, 158, 11, 0.16); color: #fbbf4c; }
+.rc-chip.is-high { background: rgba(227, 24, 55, 0.18); color: var(--accent-text); }
+.rc-chip.is-medium { background: rgba(245, 158, 11, 0.16); color: var(--risk-mid-text); }
 .rc-chip.is-private { background: rgba(255, 255, 255, 0.07); color: var(--rp-dim); }
 
 .rc-desc {
@@ -228,7 +228,7 @@
   border: 1px solid rgba(227, 24, 55, 0.4);
   border-radius: 10px;
   background: rgba(227, 24, 55, 0.14);
-  color: #ff8095;
+  color: var(--accent-text);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -242,8 +242,8 @@
   transition: transform 180ms var(--rp-ease);
 }
 .rc-scan:hover {
-  background: #e31837;
-  border-color: #e31837;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 .rc-scan:hover svg { transform: translateX(2px); }

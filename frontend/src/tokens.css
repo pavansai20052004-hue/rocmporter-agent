@@ -1,0 +1,158 @@
+/* ==========================================================================
+   ROCmPorter design tokens — three-layer architecture
+   Primitive (raw values) → Semantic (purpose) → Component (usage)
+
+   Rule: components reference semantic or component tokens only. A raw hex in a
+   component stylesheet is a bug — it can't be themed, audited, or changed once.
+   ========================================================================== */
+
+:root {
+  /* ====================================================================
+     LAYER 1 — PRIMITIVE. Raw values. Never referenced by components.
+     ==================================================================== */
+
+  /* AMD red ramp (brand) */
+  --red-300: #ff8095;
+  --red-400: #f2415f;
+  --red-500: #e31837;
+  --red-600: #b3122c;
+  --red-700: #7d0d1f;
+
+  /* ROCm teal ramp (secondary / success-of-migration) */
+  --teal-300: #6ef2e8;
+  --teal-400: #5ef0e5;
+  --teal-500: #00c3b8;
+  --teal-600: #00968e;
+
+  /* Neutral ramp (OLED-leaning) */
+  --neutral-0: #05060a;
+  --neutral-50: #08090e;
+  --neutral-100: #0e1018;
+  --neutral-200: #151824;
+  --neutral-400: #8b93a7;
+  --neutral-500: #9aa3b6;
+  --neutral-600: #b9c0cf;
+  --neutral-900: #e8ecf4;
+
+  /* Status ramps */
+  --amber-400: #fbbf4c;
+  --amber-500: #f59e0b;
+  --green-400: #5ee08a;
+  --green-500: #22c55e;
+
+  /* Alpha overlays — the only correct way to layer on a dark base */
+  --alpha-02: rgba(255, 255, 255, 0.02);
+  --alpha-03: rgba(255, 255, 255, 0.03);
+  --alpha-05: rgba(255, 255, 255, 0.05);
+  --alpha-08: rgba(255, 255, 255, 0.08);
+  --alpha-16: rgba(255, 255, 255, 0.16);
+
+  /* Spacing scale (4pt base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  /* Icon sizes — pro-rules: define as tokens, don't mix arbitrary values */
+  --icon-xs: 11px;
+  --icon-sm: 13px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+  --icon-stroke: 1.8;
+
+  /* Motion — durations per the 150-400ms interaction budget */
+  --dur-instant: 120ms;
+  --dur-fast: 180ms;
+  --dur-base: 240ms;
+  --dur-slow: 380ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Elevation */
+  --elev-1: 0 8px 24px -14px rgba(0, 0, 0, 0.7);
+  --elev-2: 0 20px 50px -32px rgba(0, 0, 0, 0.9);
+  --elev-3: 0 30px 70px -30px rgba(0, 0, 0, 0.9);
+
+  /* ====================================================================
+     LAYER 2 — SEMANTIC. What a value means. Components use these.
+     ==================================================================== */
+
+  --surface-base: var(--neutral-0);
+  --surface-raised: var(--alpha-02);
+  --surface-hover: var(--alpha-05);
+  --surface-panel: rgba(14, 16, 24, 0.86);
+
+  --border-subtle: var(--alpha-08);
+  --border-strong: var(--alpha-16);
+  --border-focus: var(--teal-500);
+
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-600);
+  --text-muted: var(--neutral-400);
+
+  --accent: var(--red-500);
+  --accent-hover: var(--red-400);
+  --accent-text: var(--red-300);
+  --accent-wash: rgba(227, 24, 55, 0.14);
+  --accent-ring: rgba(227, 24, 55, 0.3);
+
+  --success: var(--teal-500);
+  --success-text: var(--teal-400);
+  --success-wash: rgba(0, 195, 184, 0.14);
+
+  /* Risk scale — used by scores, findings, distribution bars */
+  --risk-high: var(--red-500);
+  --risk-high-text: var(--red-300);
+  --risk-high-wash: rgba(227, 24, 55, 0.16);
+  --risk-mid: var(--amber-500);
+  --risk-mid-text: var(--amber-400);
+  --risk-mid-wash: rgba(245, 158, 11, 0.16);
+  --risk-low: var(--green-500);
+  --risk-low-text: var(--green-400);
+  --risk-low-wash: rgba(34, 197, 94, 0.16);
+
+  /* ====================================================================
+     LAYER 3 — COMPONENT. Specific usage. Change one surface safely.
+     ==================================================================== */
+
+  --card-bg: var(--surface-raised);
+  --card-border: var(--border-subtle);
+  --card-radius: var(--radius-lg);
+  --card-hover-bg: var(--surface-hover);
+  --card-hover-border: var(--border-strong);
+
+  --btn-primary-bg: linear-gradient(135deg, var(--red-500), var(--red-600));
+  --btn-primary-text: #fff;
+  --btn-radius: var(--radius-md);
+  --btn-min-height: 44px; /* touch target floor */
+
+  --input-bg: rgba(8, 9, 14, 0.6);
+  --input-border: var(--border-subtle);
+  --input-focus-ring: 0 0 0 3px var(--accent-ring);
+  --input-min-height: 48px;
+
+  --chip-bg: var(--alpha-03);
+  --chip-border: var(--border-subtle);
+  --chip-radius: var(--radius-md);
+}
+
+/* Motion tokens collapse when the visitor asks for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

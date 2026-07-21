@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { startCheckout } from '../lib/billing'
 import { useReveal, useTilt } from '../hooks/useFx'
+import { useMagnetic, useStagger } from '../hooks/useMotion'
 import HeroLive from '../components/HeroLive'
 
 const FEATURES = [
@@ -116,6 +117,10 @@ export default function Landing() {
   const revealSteps = useReveal()
   const revealPricing = useReveal()
   const revealCta = useReveal()
+  // Magnetic pull is deliberately limited to the single primary CTA — applied
+  // broadly it stops reading as emphasis and starts reading as noise.
+  const heroCta = useMagnetic()
+  const stepsStagger = useStagger({ step: 90 })
 
   async function handlePlan(tier) {
     setCheckoutError('')
@@ -182,9 +187,13 @@ export default function Landing() {
             and generates verified ROCm migration patches you can trust.
           </p>
           <div className="hero-actions">
-            <Link className="primary-button hero-cta shine-btn" to={user ? '/app' : '/login'}>
-              {user ? 'Open the scanner' : 'Scan your first repo — free'}
-            </Link>
+            {/* Wrapper carries the magnetic ref: Link does not forward refs to the
+                underlying anchor here, and translating the wrapper is equivalent. */}
+            <span ref={heroCta} className="magnetic-wrap">
+              <Link className="primary-button hero-cta shine-btn" to={user ? '/app' : '/login'}>
+                {user ? 'Open the scanner' : 'Scan your first repo — free'}
+              </Link>
+            </span>
             <a className="secondary-button hero-cta ghost-cta" href="#how">
               See how it works ↓
             </a>
@@ -204,7 +213,7 @@ export default function Landing() {
         <div ref={revealSteps} className="fx-reveal">
           <p className="section-label center-label">How it works</p>
           <h2 className="section-title">Three steps from CUDA to ROCm</h2>
-          <div className="steps-grid">
+          <div ref={stepsStagger} className="steps-grid">
             {STEPS.map((step, i) => (
               <div key={step.n} className="step-card glow-card" style={{ animationDelay: `${i * 120}ms` }}>
                 <span className="step-num grad-text">{step.n}</span>

@@ -9,10 +9,10 @@
 .history-panel,
 .bill-grid,
 .bill-history {
-  --ap-line: rgba(255, 255, 255, 0.08);
-  --ap-dim: #8b93a7;
-  --ap-text: #e8ecf4;
-  --ap-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ap-line: var(--border-subtle);
+  --ap-dim: var(--text-muted);
+  --ap-text: var(--text-primary);
+  --ap-ease: var(--ease-out);
 }
 
 /* ---------- stat tiles ---------- */
@@ -43,10 +43,10 @@
   opacity: 0.6;
 }
 .stat-tile.tone-teal::after { background: #00c3b8; }
-.stat-tile.tone-warm::after { background: #f59e0b; }
-.stat-tile.tone-red::after { background: #e31837; }
+.stat-tile.tone-warm::after { background: var(--risk-mid); }
+.stat-tile.tone-red::after { background: var(--accent); }
 .stat-tile:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--border-strong);
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -61,9 +61,9 @@
   margin-bottom: 6px;
 }
 .st-icon svg { width: 15px; height: 15px; }
-.stat-tile.tone-teal .st-icon { color: #5ef0e5; background: rgba(0, 195, 184, 0.12); }
-.stat-tile.tone-warm .st-icon { color: #fbbf4c; background: rgba(245, 158, 11, 0.12); }
-.stat-tile.tone-red .st-icon { color: #ff8095; background: rgba(227, 24, 55, 0.14); }
+.stat-tile.tone-teal .st-icon { color: var(--success-text); background: rgba(0, 195, 184, 0.12); }
+.stat-tile.tone-warm .st-icon { color: var(--risk-mid-text); background: rgba(245, 158, 11, 0.12); }
+.stat-tile.tone-red .st-icon { color: var(--accent-text); background: rgba(227, 24, 55, 0.14); }
 
 .st-value {
   font-family: var(--font-display);
@@ -121,9 +121,9 @@
   height: 100%;
   transition: width 420ms var(--ap-ease);
 }
-.rd-seg.is-bad { background: #e31837; }
-.rd-seg.is-mid { background: #f59e0b; }
-.rd-seg.is-good { background: #22c55e; }
+.rd-seg.is-bad { background: var(--accent); }
+.rd-seg.is-mid { background: var(--risk-mid); }
+.rd-seg.is-good { background: var(--risk-low); }
 
 .rd-legend {
   list-style: none;
@@ -145,9 +145,9 @@
   height: 8px;
   border-radius: 2px;
 }
-.rd-legend i.is-bad { background: #e31837; }
-.rd-legend i.is-mid { background: #f59e0b; }
-.rd-legend i.is-good { background: #22c55e; }
+.rd-legend i.is-bad { background: var(--accent); }
+.rd-legend i.is-mid { background: var(--risk-mid); }
+.rd-legend i.is-good { background: var(--risk-low); }
 .rd-legend strong {
   color: var(--ap-text);
   font-variant-numeric: tabular-nums;
@@ -194,7 +194,7 @@
   transition: border-color 190ms var(--ap-ease), background-color 190ms var(--ap-ease);
 }
 .scan-row:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--border-strong);
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -212,9 +212,9 @@
   background: rgba(255, 255, 255, 0.05);
   color: var(--ap-dim);
 }
-.sr-score.tone-bad { background: rgba(227, 24, 55, 0.16); color: #ff8095; }
-.sr-score.tone-mid { background: rgba(245, 158, 11, 0.16); color: #fbbf4c; }
-.sr-score.tone-good { background: rgba(34, 197, 94, 0.16); color: #5ee08a; }
+.sr-score.tone-bad { background: rgba(227, 24, 55, 0.16); color: var(--accent-text); }
+.sr-score.tone-mid { background: rgba(245, 158, 11, 0.16); color: var(--risk-mid-text); }
+.sr-score.tone-good { background: rgba(34, 197, 94, 0.16); color: var(--risk-low-text); }
 
 .sr-main {
   flex: 1;
@@ -237,9 +237,9 @@
   font-size: 11.5px;
   color: var(--ap-dim);
 }
-.sr-meta .risk-high { color: #ff8095; }
-.sr-meta .risk-med { color: #fbbf4c; }
-.sr-meta .risk-low { color: #5ee08a; }
+.sr-meta .risk-high { color: var(--accent-text); }
+.sr-meta .risk-med { color: var(--risk-mid-text); }
+.sr-meta .risk-low { color: var(--risk-low-text); }
 
 .sr-actions {
   flex: none;
@@ -252,7 +252,7 @@
   border-radius: 9px;
   border: 1px solid var(--ap-line);
   background: rgba(255, 255, 255, 0.03);
-  color: #b9c0cf;
+  color: var(--text-secondary);
   font: inherit;
   font-size: 12.5px;
   font-weight: 500;
@@ -264,9 +264,9 @@
 .sr-btn.is-primary {
   border-color: rgba(227, 24, 55, 0.4);
   background: rgba(227, 24, 55, 0.14);
-  color: #ff8095;
+  color: var(--accent-text);
 }
-.sr-btn.is-primary:hover { background: #e31837; border-color: #e31837; color: #fff; }
+.sr-btn.is-primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .sr-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 24, 55, 0.28); }
 
 .scan-row.is-skeleton { pointer-events: none; min-height: 68px; display: grid; gap: 8px; }
@@ -348,7 +348,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: var(--ap-dim);
 }
-.bp-badge.is-pro { background: rgba(0, 195, 184, 0.16); color: #5ef0e5; }
+.bp-badge.is-pro { background: rgba(0, 195, 184, 0.16); color: var(--success-text); }
 
 .bp-crest {
   width: 36px;
@@ -357,7 +357,7 @@
   place-items: center;
   border-radius: 11px;
   background: rgba(0, 195, 184, 0.12);
-  color: #5ef0e5;
+  color: var(--success-text);
 }
 .bp-crest svg { width: 18px; height: 18px; }
 
@@ -381,7 +381,7 @@
   padding: 12px 18px;
   border: 0;
   border-radius: 11px;
-  background: linear-gradient(135deg, #e31837, #b3122c);
+  background: linear-gradient(135deg, var(--accent), #b3122c);
   color: #fff;
   font: inherit;
   font-size: 14px;
@@ -445,7 +445,7 @@
   font-style: normal;
   font-size: 11.5px;
   font-weight: 500;
-  color: #5ef0e5;
+  color: var(--success-text);
 }
 .bc-col ul {
   list-style: none;
@@ -463,7 +463,7 @@
   color: var(--ap-dim);
 }
 .bc-col li svg { width: 12px; height: 12px; flex: none; margin-top: 3px; color: rgba(255, 255, 255, 0.3); }
-.bc-col.is-pro-col li svg { color: #5ef0e5; }
+.bc-col.is-pro-col li svg { color: var(--success-text); }
 
 /* ---------- receipts table ---------- */
 .bill-table-wrap { overflow-x: auto; }
@@ -503,8 +503,8 @@
 }
 .bt-status.is-paid,
 .bt-status.is-captured,
-.bt-status.is-succeeded { background: rgba(34, 197, 94, 0.16); color: #5ee08a; }
-.bt-status.is-failed { background: rgba(227, 24, 55, 0.16); color: #ff8095; }
+.bt-status.is-succeeded { background: rgba(34, 197, 94, 0.16); color: var(--risk-low-text); }
+.bt-status.is-failed { background: rgba(227, 24, 55, 0.16); color: var(--accent-text); }
 
 .bt-amount {
   font-family: var(--font-display);

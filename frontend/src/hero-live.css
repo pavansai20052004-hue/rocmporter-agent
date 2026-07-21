@@ -394,3 +394,10 @@ pre {
   .hl-repo.pos-1,
   .hl-repo.pos-2 { opacity: 1; }
 }
+
+/* Magnetic CTA wrapper — inline-flex so it hugs the button exactly and the
+   translate reads as the button moving, not a box shifting around it. */
+.magnetic-wrap {
+  display: inline-flex;
+  will-change: transform;
+}
