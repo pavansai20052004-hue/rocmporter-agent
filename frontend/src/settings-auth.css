@@ -1,0 +1,315 @@
+/* ==========================================================================
+   Settings + Login
+   Same surface language as the rest of the app; all colour, radius and motion
+   values come from tokens.css.
+   ========================================================================== */
+
+/* ---------- shared card ---------- */
+.set-card {
+  padding: var(--space-5);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  margin-bottom: var(--space-3);
+}
+.set-card.is-danger {
+  border-color: rgba(227, 24, 55, 0.28);
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(227, 24, 55, 0.07), transparent 60%),
+    var(--card-bg);
+}
+.section-label.is-danger-label { color: var(--accent-text); }
+
+/* ---------- identity ---------- */
+.set-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.set-avatar {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+}
+.set-avatar.is-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--accent-wash);
+  color: var(--accent-text);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.set-identity-text { flex: 1; min-width: 0; }
+.set-identity-text h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.set-identity-text p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.set-plan {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--alpha-05);
+  color: var(--text-muted);
+}
+.set-plan.is-pro { background: var(--success-wash); color: var(--success-text); }
+
+/* ---------- facts ---------- */
+.set-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-5) 0 0;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.set-facts div { display: grid; gap: 4px; }
+.set-facts dt {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.set-facts dd {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-primary);
+}
+
+.set-note {
+  margin: var(--space-4) 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ---------- connected accounts ---------- */
+.set-conn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--alpha-02);
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+.set-conn.is-live { border-color: rgba(0, 195, 184, 0.26); }
+
+.set-conn-icon {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--alpha-05);
+  color: var(--text-secondary);
+}
+.set-conn-icon svg { width: var(--icon-lg); height: var(--icon-lg); }
+
+.set-conn-text { flex: 1; min-width: 0; }
+.set-conn-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.set-conn-state {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.set-conn.is-live .set-conn-state { color: var(--success-text); }
+
+.set-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+.set-dot.is-live {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(0, 195, 184, 0.16);
+}
+
+.set-conn-text p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.set-conn-btn {
+  flex: none;
+  min-height: 40px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--alpha-05);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.set-conn-btn:hover { background: var(--alpha-16); border-color: var(--border-strong); }
+.set-conn-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* ---------- danger zone ---------- */
+.set-danger-title {
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.set-danger-copy {
+  margin: 0 0 var(--space-4);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.set-delete-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.set-confirm {
+  flex: 1 1 220px;
+  min-height: var(--btn-min-height);
+  padding: 11px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+}
+.set-confirm::placeholder { color: var(--text-muted); }
+.set-confirm:focus-visible {
+  outline: none;
+  border-color: rgba(227, 24, 55, 0.55);
+  box-shadow: var(--input-focus-ring);
+}
+
+.set-delete-btn {
+  flex: none;
+  min-height: var(--btn-min-height);
+  padding: 11px 18px;
+  border: 1px solid rgba(227, 24, 55, 0.45);
+  border-radius: var(--radius-md);
+  background: var(--accent-wash);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.set-delete-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.set-delete-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.set-delete-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* ==========================================================================
+   Login
+   ========================================================================== */
+.auth-card-v2 {
+  border-radius: var(--radius-xl);
+}
+
+.oauth-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 50px;
+  padding: 13px 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--alpha-03);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.oauth-button:hover:not(:disabled) {
+  background: var(--alpha-08);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.oauth-button:active:not(:disabled) { transform: translateY(0); }
+.oauth-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 195, 184, 0.28);
+}
+.oauth-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.oauth-button svg { flex: none; }
+
+.auth-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.auth-fineprint {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.auth-fineprint a { color: var(--text-secondary); }
+
+.auth-back {
+  color: var(--text-muted);
+  font-size: 13px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.auth-back:hover { color: var(--text-primary); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 640px) {
+  .set-identity { flex-wrap: wrap; }
+  .set-plan { order: -1; }
+  .set-conn { flex-wrap: wrap; }
+  .set-conn-btn { width: 100%; }
+  .set-delete-btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oauth-button, .set-conn, .set-conn-btn, .set-delete-btn { transition: none !important; }
+  .oauth-button:hover:not(:disabled) { transform: none; }
+}
