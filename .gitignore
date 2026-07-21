@@ -16,3 +16,7 @@ backend/.env
 .vercel
 .env*
 vscode-extension/*.vsix
+
+# Next.js migration (in progress)
+web/node_modules
+web/.next

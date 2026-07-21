@@ -1,0 +1,282 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   ROCmPorter — design tokens (Tailwind v4 @theme)
+   ========================================================================== */
+@theme {
+  --color-bg: #050505;
+  --color-card: #0d0d11;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+
+  --color-primary: #ff365d;
+  --color-primary-soft: #ff6b87;
+  --color-secondary: #00d4ff;
+  --color-accent: #7c5cff;
+  --color-success: #00e38c;
+
+  --color-ink: #f4f6fb;
+  --color-ink-2: #b6bccb;
+  --color-ink-3: #7d8496;
+
+  --font-display: var(--font-sora), system-ui, sans-serif;
+  --font-sans: var(--font-plex), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ---------- base ---------- */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+::selection { background: rgba(255, 54, 93, 0.32); }
+
+:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@layer components {
+  /* ==========================================================================
+     Depth system — layered, not flat
+     ========================================================================== */
+
+  /* Mesh lighting: three offset radials, low opacity, no hard edges. */
+  .mesh {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(58rem 42rem at 12% -8%, rgba(255, 54, 93, 0.16), transparent 62%),
+      radial-gradient(46rem 38rem at 92% 6%, rgba(0, 212, 255, 0.11), transparent 60%),
+      radial-gradient(52rem 44rem at 68% 88%, rgba(124, 92, 255, 0.10), transparent 64%);
+  }
+
+  /* Film grain so large dark fields don't band. */
+  .noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Hairline grid, fades out before it becomes wallpaper. */
+  .grid-veil {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(70% 55% at 50% 0%, #000 20%, transparent 78%);
+  }
+
+  /* ==========================================================================
+     Typography rhythm
+     ========================================================================== */
+  .h-display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2.6rem, 5.4vw, 4.75rem);   /* 42 → 76px */
+    line-height: 0.98;
+    letter-spacing: -0.042em;
+  }
+  .h-section {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(2rem, 3.6vw, 3rem);        /* 32 → 48px */
+    line-height: 1.06;
+    letter-spacing: -0.032em;
+  }
+  .h-card {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.375rem;                         /* 22px */
+    line-height: 1.25;
+    letter-spacing: -0.018em;
+  }
+  .body-lg {
+    font-size: 1.125rem;                         /* 18px */
+    line-height: 1.65;
+    color: var(--color-ink-2);
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* Gradient text, used once per section at most. */
+  .grad-ink {
+    background: linear-gradient(120deg, var(--color-primary) 0%, var(--color-accent) 52%, var(--color-secondary) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* ==========================================================================
+     Surfaces
+     ========================================================================== */
+  .glass {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--color-line);
+  }
+
+  /* Hairline highlight along the top edge — the detail that reads as expensive. */
+  .edge-lit { position: relative; }
+  .edge-lit::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  }
+
+  /* Border that lights up from the pointer position. */
+  .card-glow { position: relative; isolation: isolate; }
+  .card-glow::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(
+      22rem circle at var(--mx, 50%) var(--my, 0%),
+      rgba(255, 54, 93, 0.55),
+      rgba(124, 92, 255, 0.22) 42%,
+      transparent 68%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 260ms var(--ease-out-soft);
+    z-index: -1;
+  }
+  .card-glow:hover::after { opacity: 1; }
+
+  /* ==========================================================================
+     Buttons
+     ========================================================================== */
+  .btn-primary {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 3rem;
+    padding: 0.875rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--color-primary), #e02350 58%, var(--color-accent));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 10px 30px -12px rgba(255, 54, 93, 0.7);
+    transition: transform 200ms var(--ease-out-soft), box-shadow 200ms var(--ease-out-soft);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset, 0 18px 44px -14px rgba(255, 54, 93, 0.85);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary svg { transition: transform 200ms var(--ease-out-soft); }
+  .btn-primary:hover svg { transform: translateX(3px); }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0.875rem 1.375rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+    background: rgba(255, 255, 255, 0.02);
+    transition: background-color 200ms var(--ease-out-soft), border-color 200ms var(--ease-out-soft);
+  }
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--color-line-strong);
+  }
+
+  /* ---------- nav underline ---------- */
+  .nav-link {
+    position: relative;
+    font-size: 0.9375rem;
+    color: var(--color-ink-2);
+    transition: color 180ms var(--ease-out-soft);
+  }
+  .nav-link:hover { color: var(--color-ink); }
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    height: 1.5px;
+    width: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 240ms var(--ease-out-soft);
+  }
+  .nav-link:hover::after { transform: scaleX(1); transform-origin: left; }
+
+  /* ==========================================================================
+     Motion
+     ========================================================================== */
+  @keyframes float-y {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-9px); }
+  }
+  .floaty { animation: float-y 7s ease-in-out infinite; }
+  .floaty-slow { animation: float-y 10s ease-in-out infinite; }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(0, 227, 140, 0.45); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 227, 140, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 227, 140, 0); }
+  }
+  .pulse-dot { animation: pulse-ring 2.2s ease-out infinite; }
+
+  @keyframes sweep {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.14), rgba(255,255,255,0.05));
+    background-size: 200% 100%;
+    animation: sweep 1.6s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+}
