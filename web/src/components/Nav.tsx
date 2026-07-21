@@ -55,11 +55,12 @@ export default function Nav() {
         </ul>
 
         <div className="ml-auto flex items-center gap-2.5">
-          <a className="btn-ghost hidden !min-h-10 !px-4 !py-2 text-sm sm:inline-flex" href={`${APP}/login`}>
+          <a className="btn-ghost hidden !min-h-10 whitespace-nowrap !px-4 !py-2 text-sm sm:inline-flex" href={`${APP}/login`}>
             Sign in
           </a>
-          <a className="btn-primary !min-h-10 !px-4 !py-2 text-sm" href={`${APP}/app`}>
-            Start scanning
+          <a className="btn-primary !min-h-10 whitespace-nowrap !px-4 !py-2 text-sm" href={`${APP}/app`}>
+            <span className="hidden sm:inline">Start scanning</span>
+            <span className="sm:hidden">Scan</span>
             <ArrowRight size={15} strokeWidth={2.4} aria-hidden />
           </a>
         </div>

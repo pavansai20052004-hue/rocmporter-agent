@@ -123,14 +123,14 @@ export default function HeroDashboard() {
               <div
                 key={i}
                 className={[
-                  'grid grid-cols-[36px_1fr] items-baseline pr-3 transition-colors duration-300',
+                  'grid grid-cols-[32px_minmax(0,1fr)] items-baseline pr-3 transition-colors duration-300',
                   isMig && changed ? 'text-[#c9bcff]' : changed ? 'text-[#ff9aad]' : 'text-[var(--color-ink-3)]',
                 ].join(' ')}
               >
                 <span className="select-none pr-3 text-right text-[10.5px] text-white/20">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <code className="overflow-hidden text-ellipsis whitespace-pre">
+                <code className="block min-w-0 overflow-hidden text-ellipsis whitespace-pre">
                   {highlight(isMig ? line.hip : line.cuda, changed, isMig)}
                 </code>
               </div>
@@ -171,7 +171,7 @@ export default function HeroDashboard() {
         initial={{ opacity: 0, y: 22 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-        className="floaty glass edge-lit absolute -bottom-16 left-0 z-10 w-[246px] rounded-2xl p-3.5 shadow-[0_28px_70px_-34px_rgba(0,0,0,0.95)] sm:-left-16"
+        className="floaty glass edge-lit absolute -bottom-16 left-0 z-10 w-[220px] sm:w-[246px] rounded-2xl p-3.5 shadow-[0_28px_70px_-34px_rgba(0,0,0,0.95)] sm:-left-16"
       >
         <div className="mb-2.5 flex items-center justify-between text-[10.5px] uppercase tracking-[0.06em]">
           <span className="flex items-center gap-1.5 text-[#ff6b87]">
@@ -206,7 +206,7 @@ export default function HeroDashboard() {
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.5, ease: [0.22, 0.61, 0.36, 1] }}
-        className="floaty-slow glass edge-lit absolute -top-9 right-0 z-20 flex max-w-[248px] items-center gap-2.5 rounded-xl px-3.5 py-2.5 shadow-[0_22px_60px_-30px_rgba(0,0,0,0.95)] sm:-right-6"
+        className="floaty-slow glass edge-lit absolute -top-9 right-0 z-20 flex max-w-[210px] sm:max-w-[248px] items-center gap-2.5 rounded-xl px-3.5 py-2.5 shadow-[0_22px_60px_-30px_rgba(0,0,0,0.95)] sm:-right-6"
       >
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--color-success)]/14 text-[var(--color-success)]">
           <GitPullRequest size={15} aria-hidden />
