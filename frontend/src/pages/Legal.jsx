@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import BrandMark from '../components/BrandMark'
 
 const EFFECTIVE = 'July 14, 2026'
 const CONTACT = 'support@rocmporter.app'
@@ -10,12 +11,7 @@ function LegalShell({ title, children }) {
       <div className="ambient-grid" aria-hidden="true"></div>
       <header className="legal-header">
         <Link to="/" className="auth-brand">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7.5 2.5h14v14l-4-4v-6h-6l-4-4Z" fill="#fff" />
-              <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
-            </svg>
-          </span>
+          <BrandMark size={26} />
           <span>ROCmPorter</span>
         </Link>
       </header>

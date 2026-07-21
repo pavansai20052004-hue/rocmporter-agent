@@ -5,6 +5,7 @@ import { startCheckout } from '../lib/billing'
 import { useReveal, useTilt } from '../hooks/useFx'
 import { useMagnetic, useStagger } from '../hooks/useMotion'
 import HeroLive from '../components/HeroLive'
+import BrandMark from '../components/BrandMark'
 
 const FEATURES = [
   {
@@ -78,17 +79,6 @@ const PRICING_TIERS = [
   },
 ]
 
-
-function BrandMark() {
-  return (
-    <span className="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7.5 2.5h14v14l-4-4v-6h-6l-4-4Z" fill="#fff" />
-        <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
-      </svg>
-    </span>
-  )
-}
 
 function FeatureCard({ feature, index }) {
   const tilt = useTilt(8)

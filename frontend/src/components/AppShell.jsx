@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import BrandMark from './BrandMark'
 
 const NAV = [
   { to: '/dashboard', label: 'Overview', icon: 'M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z' },
@@ -24,12 +25,7 @@ export default function AppShell({ eyebrow, title, actions, children, wide = fal
 
       <aside className="shell-side">
         <Link to="/" className="shell-brand">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7.5 2.5h14v14l-4-4v-6h-6l-4-4Z" fill="#fff" />
-              <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
-            </svg>
-          </span>
+          <BrandMark size={30} />
           <strong>ROCmPorter</strong>
         </Link>
 

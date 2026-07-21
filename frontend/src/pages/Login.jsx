@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import BrandMark from '../components/BrandMark'
 
 const HIGHLIGHTS = [
   'Scan any GitHub repo for CUDA lock-in',
@@ -62,12 +63,7 @@ export default function Login() {
       <main className="auth-panel">
         <div className="auth-card auth-card-v2">
           <Link to="/" className="auth-brand">
-            <span className="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7.5 2.5h14v14l-4-4v-6h-6l-4-4Z" fill="#fff" />
-                <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
-              </svg>
-            </span>
+            <BrandMark size={30} />
             <span>ROCmPorter</span>
           </Link>
 
