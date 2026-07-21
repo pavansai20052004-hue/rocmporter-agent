@@ -1,4 +1,46 @@
 /* ==========================================================================
+   Type refinements for the Sora / IBM Plex Sans system.
+   Sora ships loose by default; display sizes need negative tracking to read as
+   engineered rather than accidental. Optical sizing scales with the heading.
+   ========================================================================== */
+
+h1,
+.section-title,
+.shell-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.032em;
+  font-weight: 700;
+}
+
+h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.024em;
+}
+
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.014em;
+}
+
+/* Numerals in data surfaces must not jitter as values change. */
+.stat-value,
+.hl-score,
+.score-value,
+.repo-score {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Anything representing code/identifiers uses the mono face. */
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
    HeroLive — live migration console + repository rail
    Motion budget: transform/opacity only, 150–400ms, power-out easing.
    Collapses to a static, fully-legible end state under prefers-reduced-motion.

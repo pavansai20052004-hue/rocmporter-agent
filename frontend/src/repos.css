@@ -1,0 +1,298 @@
+/* ==========================================================================
+   Repositories — prioritised GPU worklist
+   Cards are ranked by CUDA likelihood, so the screen answers "which of my repos
+   need migrating?" instead of "here are all your repos".
+   ========================================================================== */
+
+.repos-panel {
+  --rp-line: rgba(255, 255, 255, 0.08);
+  --rp-dim: #8b93a7;
+  --rp-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  display: grid;
+  gap: 16px;
+}
+
+/* ---------- controls ---------- */
+.repos-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.repos-search-wrap {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.repos-search-wrap svg {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--rp-dim);
+  pointer-events: none;
+}
+.repos-search {
+  width: 100%;
+  min-height: 44px; /* touch target */
+  padding: 10px 14px 10px 36px;
+  border-radius: 11px;
+  border: 1px solid var(--rp-line);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 180ms var(--rp-ease), background-color 180ms var(--rp-ease);
+}
+.repos-search::placeholder { color: var(--rp-dim); }
+.repos-search:focus-visible {
+  outline: none;
+  border-color: rgba(0, 195, 184, 0.55);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(0, 195, 184, 0.16);
+}
+
+.repos-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--rp-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+.repos-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--rp-dim);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 180ms var(--rp-ease), color 180ms var(--rp-ease);
+}
+.repos-tab:hover { color: #e8ecf4; background: rgba(255, 255, 255, 0.04); }
+.repos-tab.is-active {
+  background: rgba(227, 24, 55, 0.16);
+  color: #ff8095;
+}
+.repos-tab-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.repos-tab.is-active .repos-tab-count {
+  background: rgba(227, 24, 55, 0.26);
+}
+
+/* ---------- cards ---------- */
+.repo-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.repo-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 16px 15px 18px;
+  border: 1px solid var(--rp-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.022);
+  transition: border-color 200ms var(--rp-ease), background-color 200ms var(--rp-ease),
+    transform 200ms var(--rp-ease);
+}
+.repo-card::before {
+  /* likelihood spine */
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background-color 200ms var(--rp-ease);
+}
+.repo-card.tier-high::before { background: #e31837; }
+.repo-card.tier-medium::before { background: rgba(245, 158, 11, 0.75); }
+
+.repo-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.045);
+  transform: translateY(-1px);
+}
+
+.rc-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.rc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rc-name {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #e8ecf4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.rc-chip {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rp-dim);
+}
+.rc-chip.is-high { background: rgba(227, 24, 55, 0.18); color: #ff8095; }
+.rc-chip.is-medium { background: rgba(245, 158, 11, 0.16); color: #fbbf4c; }
+.rc-chip.is-private { background: rgba(255, 255, 255, 0.07); color: var(--rp-dim); }
+
+.rc-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rp-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rc-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--rp-dim);
+}
+.rc-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rc-lang i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.rc-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.rc-stat svg { width: 11px; height: 11px; opacity: 0.8; }
+.rc-time { margin-left: auto; }
+
+/* ---------- scan action ---------- */
+.rc-scan {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 15px;
+  border: 1px solid rgba(227, 24, 55, 0.4);
+  border-radius: 10px;
+  background: rgba(227, 24, 55, 0.14);
+  color: #ff8095;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 180ms var(--rp-ease), color 180ms var(--rp-ease),
+    border-color 180ms var(--rp-ease);
+}
+.rc-scan svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 180ms var(--rp-ease);
+}
+.rc-scan:hover {
+  background: #e31837;
+  border-color: #e31837;
+  color: #fff;
+}
+.rc-scan:hover svg { transform: translateX(2px); }
+.rc-scan:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(227, 24, 55, 0.3);
+}
+
+/* ---------- skeleton + empty ---------- */
+.repo-card.is-skeleton {
+  pointer-events: none;
+  min-height: 84px;
+}
+.sk {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.4s linear infinite;
+}
+.sk-title { width: 42%; height: 13px; }
+.sk-desc { width: 68%; height: 11px; }
+.sk-meta { width: 30%; height: 10px; }
+@keyframes rp-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.repos-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--rp-dim);
+  border: 1px dashed var(--rp-line);
+  border-radius: 14px;
+}
+.repos-empty p { margin: 0; font-size: 14px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 720px) {
+  .repos-controls { flex-direction: column; align-items: stretch; }
+  .repos-tabs { justify-content: space-between; }
+  .repos-tab { flex: 1; justify-content: center; }
+  .repo-card { flex-wrap: wrap; }
+  .rc-scan { width: 100%; justify-content: center; }
+  .rc-time { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
+  .repo-card, .rc-scan, .rc-scan svg, .repos-tab, .repos-search { transition: none !important; }
+  .repo-card:hover { transform: none; }
+}

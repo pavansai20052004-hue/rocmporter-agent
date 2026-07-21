@@ -10,7 +10,7 @@
 
 :root {
   /* Typography */
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   line-height: 1.55;
   font-weight: 400;
   font-synthesis: none;
@@ -86,8 +86,11 @@
   --shadow: var(--shadow-lg);
   --accent-legacy: var(--accent-warm);
 
-  /* Display face */
-  --font-display: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+  /* Type system: Sora for display (geometric, engineered), IBM Plex Sans for
+     UI/body (engineering heritage, high small-size legibility), JetBrains Mono
+     for anything that represents code. */
+  --font-display: 'Sora', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
