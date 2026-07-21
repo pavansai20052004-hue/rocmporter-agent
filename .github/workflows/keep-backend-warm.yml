@@ -1,0 +1,46 @@
+# Keeps the Render free-tier backend awake.
+#
+# Render spins a free web service down after ~15 minutes without inbound
+# traffic; the next visitor then waits ~30s for a cold start. On a launch day
+# that is the difference between a scan and a bounce. This pings /api/health
+# every 10 minutes so the service stays warm.
+#
+# Free-tier note: a free Render service running 24/7 uses ~730 of the 750
+# monthly instance-hours, so this fits — as long as this is the only free web
+# service on the account. If you upgrade to a paid instance, you can delete
+# this workflow (paid services never sleep).
+
+name: Keep backend warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        shell: bash
+        run: |
+          set -uo pipefail
+          URL="https://rocmporter-api.onrender.com/api/health"
+          for attempt in 1 2 3; do
+            start=$(date +%s)
+            code=$(curl -s -o /tmp/body.txt -w '%{http_code}' --max-time 90 "$URL" || echo 000)
+            elapsed=$(( $(date +%s) - start ))
+            echo "attempt $attempt: HTTP $code in ${elapsed}s — $(cat /tmp/body.txt)"
+            if [ "$code" = "200" ]; then
+              if [ "$elapsed" -gt 10 ]; then
+                echo "::notice::Backend was cold (${elapsed}s) — now warmed."
+              fi
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::warning::Backend did not return 200 after 3 attempts."
+          exit 0   # never fail the repo's checks over a warm-up ping
