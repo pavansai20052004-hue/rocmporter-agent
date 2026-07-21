@@ -207,3 +207,125 @@
   }
   .repo-form .primary-button:hover:not(:disabled) { transform: none; }
 }
+
+/* ==========================================================================
+   Evidence snippet — inline CUDA → HIP preview
+   The scan already knows which lines are the problem; this shows what the
+   deterministic pass does to them, before any model is involved.
+   ========================================================================== */
+.ev-snip {
+  margin-top: var(--space-2, 8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  background: rgba(8, 9, 14, 0.6);
+  overflow: hidden;
+}
+
+.ev-snip-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--alpha-02);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ev-snip-lang {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--accent-wash);
+  color: var(--accent-text);
+  transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+}
+.ev-snip.is-hip .ev-snip-lang {
+  background: var(--success-wash);
+  color: var(--success-text);
+}
+
+.ev-snip-count strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.ev-snip-count.is-manual { color: var(--risk-mid-text); }
+
+.ev-snip-advisory {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--risk-mid-text);
+  font-size: 10.5px;
+}
+
+.ev-snip-toggle {
+  margin-left: auto;
+  min-height: 28px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--alpha-05);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.ev-snip-toggle:hover {
+  background: var(--success-wash);
+  border-color: rgba(0, 195, 184, 0.4);
+  color: var(--success-text);
+}
+.ev-snip-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 195, 184, 0.25);
+}
+
+.ev-snip-code {
+  margin: 0;
+  padding: 10px 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+.ev-snip-code code { font-family: inherit; }
+
+.ev-snip-line { display: flex; gap: 12px; padding: 0 12px; }
+.ev-snip-ln {
+  flex: none;
+  min-width: 2.2em;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 10.5px;
+  user-select: none;
+}
+.ev-snip-text { white-space: pre; }
+
+/* The tokens that actually carry the lock-in. */
+.ev-tok {
+  border-radius: 3px;
+  padding: 1px 3px;
+  background: var(--accent-wash);
+  color: var(--accent-text);
+  transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+}
+.ev-snip.is-hip .ev-tok {
+  background: var(--success-wash);
+  color: var(--success-text);
+}
+.ev-tok.is-advisory {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--risk-mid-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-snip-lang, .ev-tok, .ev-snip-toggle { transition: none !important; }
+}

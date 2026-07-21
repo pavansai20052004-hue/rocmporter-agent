@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import AppShell from './components/AppShell'
+import EvidenceSnippet from './components/EvidenceSnippet'
 import { startCheckout } from './lib/billing'
 import { getSavedScan, saveScan } from './lib/scans'
 import {
@@ -1370,7 +1371,7 @@ function App() {
                               </button>
                             </div>
                             {entry.matchText ? <p className="match-text">Match: {entry.matchText}</p> : null}
-                            {entry.snippet ? <pre className="snippet-block">{entry.snippet}</pre> : null}
+                            <EvidenceSnippet snippet={entry.snippet} startLine={entry.lineStart} />
                           </div>
                         ))}
                       </div>
