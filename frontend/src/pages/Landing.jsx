@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { startCheckout } from '../lib/billing'
 import { useReveal, useTilt } from '../hooks/useFx'
+import HeroLive from '../components/HeroLive'
 
 const FEATURES = [
   {
@@ -76,14 +77,6 @@ const PRICING_TIERS = [
   },
 ]
 
-const TERMINAL_LINES = [
-  { cls: 'tl-cmd', text: '$ rocmporter scan pytorch/extension-cpp' },
-  { cls: 'tl-dim', text: 'cloning… analyzing 111 files' },
-  { cls: 'tl-hit', text: '▸ cuda_runtime.h        muladd.cu:6' },
-  { cls: 'tl-hit', text: '▸ nvcc build flags      setup.py:43' },
-  { cls: 'tl-hit', text: '▸ torch.cuda paths      setup.py:34' },
-  { cls: 'tl-ok', text: '✓ readiness 62/100 · patch plan ready' },
-]
 
 function BrandMark() {
   return (
@@ -93,54 +86,6 @@ function BrandMark() {
         <path d="M2.5 21.5v-9.6l4.4-4.4v9.6h9.6l-4.4 4.4H2.5Z" fill="#fff" fillOpacity="0.82" />
       </svg>
     </span>
-  )
-}
-
-function HeroScene() {
-  return (
-    <div className="hero-scene" aria-hidden="true">
-      <div className="scene-orbit">
-        <span className="orbit-dot od-1"></span>
-        <span className="orbit-dot od-2"></span>
-        <span className="orbit-dot od-3"></span>
-      </div>
-
-      <div className="chip3d">
-        <div className="chip3d-inner">
-          <div className="chip-face chip-front">
-            <span className="chip-label-top">CUDA</span>
-            <div className="chip-die">
-              <div className="chip-grid">
-                {Array.from({ length: 16 }, (_, i) => (
-                  <span key={i} className="chip-cell" style={{ animationDelay: `${(i % 5) * 0.35}s` }}></span>
-                ))}
-              </div>
-            </div>
-            <span className="chip-label-bot">ROCm</span>
-          </div>
-          <div className="chip-face chip-back"></div>
-          <div className="chip-face chip-left"></div>
-          <div className="chip-face chip-right"></div>
-          <div className="chip-face chip-top"></div>
-          <div className="chip-face chip-bottom"></div>
-        </div>
-        <div className="chip-shadow"></div>
-      </div>
-
-      <div className="hero-terminal">
-        <div className="ht-bar">
-          <span></span><span></span><span></span>
-          <em>rocmporter</em>
-        </div>
-        <div className="ht-body">
-          {TERMINAL_LINES.map((line, i) => (
-            <p key={i} className={`tl ${line.cls}`} style={{ animationDelay: `${0.6 + i * 0.55}s` }}>
-              {line.text}
-            </p>
-          ))}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -245,14 +190,14 @@ export default function Landing() {
             </a>
           </div>
           <div className="hero-proof">
-            <span><strong>Line-level</strong> evidence</span>
+            <span><strong>Deterministic-first</strong> engine</span>
             <span className="proof-sep"></span>
-            <span><strong>Verified</strong> patches</span>
+            <span><strong>hipcc</strong> verified in CI</span>
             <span className="proof-sep"></span>
-            <span><strong>1-click</strong> GitHub reviews</span>
+            <span><strong>1-click</strong> migration PRs</span>
           </div>
         </div>
-        <HeroScene />
+        <HeroLive />
       </section>
 
       <section id="how" className="how-section">

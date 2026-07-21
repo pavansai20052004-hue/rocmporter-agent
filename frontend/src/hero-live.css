@@ -1,0 +1,354 @@
+/* ==========================================================================
+   HeroLive — live migration console + repository rail
+   Motion budget: transform/opacity only, 150–400ms, power-out easing.
+   Collapses to a static, fully-legible end state under prefers-reduced-motion.
+   ========================================================================== */
+
+.hero-live {
+  --hl-red: #e31837;
+  --hl-teal: #00c3b8;
+  --hl-ink: #05060a;
+  --hl-panel: rgba(14, 16, 24, 0.86);
+  --hl-line: rgba(255, 255, 255, 0.08);
+  --hl-text: #e8ecf4;
+  --hl-dim: #8b93a7;
+  --hl-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  display: grid;
+  gap: 14px;
+  width: min(560px, 100%);
+  justify-self: end;
+  font-variant-ligatures: none;
+}
+
+/* ---------- console ---------- */
+.hl-console {
+  position: relative;
+  border: 1px solid var(--hl-line);
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(227, 24, 55, 0.14), transparent 60%),
+    radial-gradient(90% 80% at 0% 100%, rgba(0, 195, 184, 0.12), transparent 62%),
+    var(--hl-panel);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 30px 70px -30px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.hl-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--hl-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.hl-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.hl-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+.hl-dots i:first-child { background: rgba(227, 24, 55, 0.55); }
+
+.hl-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 12.5px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--hl-text);
+}
+
+.hl-tag {
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: rgba(227, 24, 55, 0.16);
+  color: #ff8095;
+  transition: background 240ms var(--hl-ease), color 240ms var(--hl-ease);
+}
+.hl-tag.is-hip {
+  background: rgba(0, 195, 184, 0.16);
+  color: #5ef0e5;
+}
+
+.hl-engine {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--hl-dim);
+  transition: color 240ms var(--hl-ease);
+}
+.hl-engine.is-done { color: #5ef0e5; }
+
+.hl-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hl-teal);
+  box-shadow: 0 0 0 0 rgba(0, 195, 184, 0.55);
+  animation: hl-pulse 1.9s ease-out infinite;
+}
+@keyframes hl-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 195, 184, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(0, 195, 184, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 195, 184, 0); }
+}
+
+/* ---------- code ---------- */
+.hl-code {
+  padding: 14px 6px 14px 0;
+  font: 400 12.5px/1.85 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.hl-line {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: baseline;
+  padding: 0 12px 0 0;
+  color: var(--hl-dim);
+  transition: color 260ms var(--hl-ease), background-color 260ms var(--hl-ease);
+}
+
+.hl-ln {
+  text-align: right;
+  padding-right: 14px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.2);
+  user-select: none;
+}
+
+.hl-line code {
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hl-line.is-cuda.is-changed { color: #ffa3b3; }
+.hl-line.is-hip.is-changed { color: #6ef2e8; }
+.hl-line.is-hip:not(.is-changed) { color: #9aa3b6; }
+
+.hl-tok {
+  position: relative;
+  border-radius: 3px;
+  padding: 1px 2px;
+  background: rgba(227, 24, 55, 0.14);
+  transition: background-color 300ms var(--hl-ease);
+}
+.hl-line.is-hip .hl-tok { background: rgba(0, 195, 184, 0.16); }
+
+/* the line that just converted gets a single, brief sweep */
+.hl-line.is-flipping {
+  background-color: rgba(0, 195, 184, 0.07);
+  animation: hl-flip 420ms var(--hl-ease);
+}
+@keyframes hl-flip {
+  0% { opacity: 0.35; transform: translateX(-6px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------- footer / metrics ---------- */
+.hl-foot {
+  border-top: 1px solid var(--hl-line);
+  padding: 10px 14px 12px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.hl-progress {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.hl-progress-fill {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--hl-red), var(--hl-teal));
+  transition: transform 340ms var(--hl-ease);
+}
+
+.hl-metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+  font-size: 11px;
+  color: var(--hl-dim);
+}
+.hl-metrics strong {
+  color: var(--hl-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.hl-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+.hl-verify {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0.45;
+  transition: opacity 260ms var(--hl-ease), color 260ms var(--hl-ease);
+}
+.hl-verify svg { width: 11px; height: 11px; }
+.hl-verify.is-ok { opacity: 1; color: #5ef0e5; }
+
+/* ---------- repository rail ---------- */
+.hl-rail {
+  border: 1px solid var(--hl-line);
+  border-radius: 14px;
+  background: var(--hl-panel);
+  backdrop-filter: blur(14px);
+  padding: 11px 13px 12px;
+  box-shadow: 0 20px 50px -32px rgba(0, 0, 0, 0.9);
+}
+
+.hl-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--hl-dim);
+}
+.hl-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff8095;
+}
+.hl-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--hl-red);
+  animation: hl-blink 1.6s ease-in-out infinite;
+}
+@keyframes hl-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.hl-rail-list {
+  list-style: none;
+  margin: 9px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.hl-repo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  color: var(--hl-text);
+  animation: hl-enter 420ms var(--hl-ease) both;
+}
+.hl-repo.pos-1 { opacity: 0.66; animation-delay: 60ms; }
+.hl-repo.pos-2 { opacity: 0.36; animation-delay: 120ms; }
+
+@keyframes hl-enter {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.hl-repo-icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--hl-dim);
+}
+.hl-repo-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+}
+
+.hl-score {
+  flex: none;
+  min-width: 30px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tone-risk { background: rgba(227, 24, 55, 0.18); color: #ff8095; }
+.tone-warn { background: rgba(245, 158, 11, 0.18); color: #fbbf4c; }
+.tone-ok { background: rgba(34, 197, 94, 0.18); color: #5ee08a; }
+
+.hl-rail-foot {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hl-line);
+  font-size: 11px;
+  color: var(--hl-dim);
+}
+.hl-rail-foot strong {
+  color: #ff8095;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  .hero-live {
+    width: 100%;
+    justify-self: stretch;
+    margin-top: 8px;
+  }
+  .hl-code { font-size: 11.5px; }
+}
+
+@media (max-width: 420px) {
+  .hl-line { grid-template-columns: 30px 1fr; }
+  .hl-code { font-size: 10.5px; }
+  .hl-metrics { flex-wrap: wrap; row-gap: 6px; }
+  .hl-verify { margin-left: 0; }
+}
+
+/* ---------- accessibility: no motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .hl-pulse,
+  .hl-live-dot,
+  .hl-line.is-flipping,
+  .hl-repo {
+    animation: none !important;
+  }
+  .hl-progress-fill,
+  .hl-line,
+  .hl-tag,
+  .hl-engine,
+  .hl-verify {
+    transition: none !important;
+  }
+  .hl-repo.pos-1,
+  .hl-repo.pos-2 { opacity: 1; }
+}
