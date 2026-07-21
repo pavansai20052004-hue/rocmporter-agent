@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import AppShell from './components/AppShell'
 import EvidenceSnippet from './components/EvidenceSnippet'
+import FindingsSummary from './components/FindingsSummary'
 import { startCheckout } from './lib/billing'
 import { getSavedScan, saveScan } from './lib/scans'
 import {
@@ -26,7 +27,6 @@ import {
   warmOllamaModel,
 } from './lib/api'
 import {
-  benchmarkProof,
   buildSampleApplyResult,
   buildSamplePatch,
   demoRepositories,
@@ -982,7 +982,6 @@ function App() {
         </div>
       ) : null}
 
-      <BenchmarkProofPanel proof={benchmarkProof} />
 
       <main id="workspace" className={workspaceClassName}>
         <aside className="control-panel">
@@ -1337,6 +1336,10 @@ function App() {
                   ))}
                 </div>
               </div>
+
+              {report ? (
+                <FindingsSummary findings={report.findings} />
+              ) : null}
 
               {report ? (
                 <div className="finding-list">
@@ -2322,33 +2325,6 @@ function scoreToneClass(score) {
     return 'score-mid'
   }
   return 'score-low'
-}
-
-function BenchmarkProofPanel({ proof }) {
-  return (
-    <section className="benchmark-proof-bar" aria-labelledby="benchmark-proof-heading">
-      <div className="proof-bar-copy">
-        <div>
-          <p className="section-label">Benchmark Proof</p>
-          <h3 id="benchmark-proof-heading">{proof.headline}</h3>
-        </div>
-        <p className="status-hint">{proof.summary}</p>
-      </div>
-
-      <div className="proof-bar-metrics" aria-label={`${proof.runName} benchmark summary`}>
-        {proof.totals.map((metric) => (
-          <div key={metric.label} className="proof-bar-metric">
-            <span className="metric-label">{metric.label}</span>
-            <strong>{metric.value}</strong>
-          </div>
-        ))}
-      </div>
-
-      <p className="status-hint proof-run-path">
-        {proof.runName} - {proof.summaryPath}
-      </p>
-    </section>
-  )
 }
 
 function countBySeverity(findings) {
